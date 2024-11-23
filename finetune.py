@@ -133,7 +133,7 @@ def get_dataset_alpaca(data_path, tokenizerr):
 
 if __name__ == "__main__":
     model, tokenizer = get_model()
-    dataset = get_dataset(data_path, tokenizer)
+    dataset = get_dataset_alpaca(data_path, tokenizer)
 
     trainer = SFTTrainer(
         model = model,
