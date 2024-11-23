@@ -103,12 +103,12 @@ def get_dataset_alpaca(data_path, tokenizerr):
 
     instruction = """You are a math expert. Help users find the misconception in the wrong math answer."""
 
-    input = f"""Given a math question, its correct answer and wrong answer, \
+    input = """Given a math question, its correct answer and wrong answer, \
     tell me what kind of misconception might the student who answers the wrong answer have. \
     \nHere is an example: Question Text: Which type of graph is represented by the equation \\( y=\\frac{{1}}{{x}} \\)?\n\
     Correct Answer Text: A reciprocal graph\n\
     Wrong Answer Text: A quadratic graph\nThe misconception for the wrong answer is: Confuses reciprocal and quadratic graphs.\n\
-    \nNow tell me what misconception does the following wrong answer imply:\n\n {question}"""
+    \nNow tell me what misconception does the following wrong answer imply:\n\n {}"""
 
     alpaca_prompt = """Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
 
