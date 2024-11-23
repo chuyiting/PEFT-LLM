@@ -96,6 +96,40 @@ def get_dataset(data_path, tokenizer):
     dataset = dataset.map(lambda x: {"formatted_chat": tokenizer.apply_chat_template(x["chat"], tokenize=False, add_generation_prompt=False)})
     return dataset
 
+# for tokenizer that does not contain default chat template
+def get_dataset_alpaca(data_path, tokenizerr):
+    
+    df = pd.read_csv(data_path, header=0)
+
+    instruction = """You are a math expert. Help users find the misconception in the wrong math answer."""
+
+    input = f"""Given a math question, its correct answer and wrong answer, \
+    tell me what kind of misconception might the student who answers the wrong answer have. \
+    \nHere is an example: Question Text: Which type of graph is represented by the equation \\( y=\\frac{{1}}{{x}} \\)?\n\
+    Correct Answer Text: A reciprocal graph\n\
+    Wrong Answer Text: A quadratic graph\nThe misconception for the wrong answer is: Confuses reciprocal and quadratic graphs.\n\
+    \nNow tell me what misconception does the following wrong answer imply:\n\n {question}"""
+
+    alpaca_prompt = """Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
+
+    ### Instruction:
+    {}
+
+    ### Input:
+    {}
+
+    ### Response:
+    {}"""
+
+    EOS_TOKEN = tokenizer.eos_token 
+    prompts = []
+    for question, answer in zip(df['LLM_Response'], df['MisconceptionName']):
+        prompt = alpaca_prompt.format(instruction, input.format(question), answer) + EOS_TOKEN
+        prompts.append(prompt)
+
+    dataset = Dataset.from_dict({"formated_text": prompts})
+    return dataset
+
 
 if __name__ == "__main__":
     model, tokenizer = get_model()
@@ -129,7 +163,7 @@ if __name__ == "__main__":
     )
 
     trainer_stats = trainer.train()
-    
+
     model.save_pretrained("lora_model") # Local saving
     tokenizer.save_pretrained("lora_model") # Local saving
 

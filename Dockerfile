@@ -1,5 +1,5 @@
 # Start from the PyTorch base image with CUDA support
-FROM pytorch/pytorch:2.5.0-cuda12.4-cudnn9-runtime
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel
 
 # Update system packages and install required dependencies
 RUN apt-get update && apt-get install -y \
