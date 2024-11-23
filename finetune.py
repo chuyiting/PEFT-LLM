@@ -97,7 +97,7 @@ def get_dataset(data_path, tokenizer):
     return dataset
 
 # for tokenizer that does not contain default chat template
-def get_dataset_alpaca(data_path, tokenizerr):
+def get_dataset_alpaca(data_path, tokenizer):
     
     df = pd.read_csv(data_path, header=0)
 
