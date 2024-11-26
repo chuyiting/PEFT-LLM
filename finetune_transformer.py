@@ -16,7 +16,7 @@ def get_model():
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
-        load_in_8bit=True,  # or load_in_4bit=True for even lower memory
+        load_in_4bit=True,  # or load_in_4bit=True for even lower memory
         device_map="auto",  # Automatically map model to available GPUs
         trust_remote_code=True
     )
