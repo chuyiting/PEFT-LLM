@@ -117,11 +117,11 @@ if __name__ == "__main__":
     dataset = get_dataset_alpaca(data_path, tokenizer)
 
     output_dir = "qwen-7b-math-lora"
-    per_device_train_batch_size = 4
-    gradient_accumulation_steps = 4
-    per_device_eval_batch_size = 4
-    eval_accumulation_steps = 4
-    optim = "paged_adamw_32bit"
+    per_device_train_batch_size = 1
+    gradient_accumulation_steps = 1
+    per_device_eval_batch_size = 1
+    eval_accumulation_steps = 1
+    optim = "adamw_8bit"
     save_steps = 10
     logging_steps = 10
     learning_rate = 5e-4
@@ -151,6 +151,7 @@ if __name__ == "__main__":
     trainer = SFTTrainer(
         model=model,
         train_dataset = dataset,
+        peft_config=lora_config,
         dataset_text_field = "formated_text",
         dataset_num_proc = 2,
         max_seq_length=256,
