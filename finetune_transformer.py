@@ -28,7 +28,8 @@ def get_model():
     lora_config = LoraConfig(
         r=8,  # Rank of the low-rank updates
         lora_alpha=16,  # Scaling factor
-        target_modules=["query_key_value"],  # Modules to apply LoRA
+        target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
+                        "gate_proj", "up_proj", "down_proj",],  # Modules to apply LoRA
         lora_dropout=0.1,  # Dropout for LoRA layers
         bias="none",  # Bias setting
         task_type="CAUSAL_LM"  # Task type
