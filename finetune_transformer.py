@@ -1,6 +1,7 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from datasets import Dataset
+from trl import SFTTrainer
 import pandas as pd
 
 data_path = 'data/finetune_data.csv'
@@ -35,7 +36,7 @@ def get_model():
 
     # Add LoRA adapters to the model
     model = get_peft_model(model, lora_config)
-    return tokenizer, model
+    return tokenizer, model, lora_config
 
 # transform the dataset into the 
 def get_dataset(data_path, tokenizer):
@@ -111,32 +112,51 @@ def get_dataset_alpaca(data_path, tokenizer):
 
 
 if __name__ == "__main__":
-    model, tokenizer = get_model()
+    model, tokenizer, lora_config = get_model()
     dataset = get_dataset_alpaca(data_path, tokenizer)
 
-    # Training arguments
+    output_dir = "qwen-7b-math-lora"
+    per_device_train_batch_size = 4
+    gradient_accumulation_steps = 4
+    per_device_eval_batch_size = 4
+    eval_accumulation_steps = 4
+    optim = "paged_adamw_32bit"
+    save_steps = 10
+    logging_steps = 10
+    learning_rate = 5e-4
+    max_grad_norm = 0.3
+    max_steps = 50
+    warmup_ratio = 0.03
+    evaluation_strategy="steps"
+    lr_scheduler_type = "constant"
+
     training_args = TrainingArguments(
-        push_to_hub=True,
-        output_dir="./lora-finetuned-qwen",
-        per_device_train_batch_size=4,
-        gradient_accumulation_steps=8,
-        learning_rate=2e-4,
-        num_train_epochs=3,
-        logging_dir="./logs",
-        save_steps=200,
-        save_total_limit=2,
-        fp16=True,  # Enable mixed precision
-        report_to="none"
+        output_dir=output_dir,
+        per_device_train_batch_size=per_device_train_batch_size,
+        gradient_accumulation_steps=gradient_accumulation_steps,
+        optim=optim,
+        save_steps=save_steps,
+        learning_rate=learning_rate,
+        logging_steps=logging_steps,
+        max_grad_norm=max_grad_norm,
+        max_steps=max_steps,
+        warmup_ratio=warmup_ratio,
+        group_by_length=True,
+        lr_scheduler_type=lr_scheduler_type,
+        ddp_find_unused_parameters=False,
+        per_device_eval_batch_size=per_device_eval_batch_size,
     )
 
-    # Define the Trainer
-    trainer = Trainer(
+    trainer = SFTTrainer(
         model=model,
-        args=training_args,
-        train_dataset=dataset,
-        eval_dataset=dataset
+        train_dataset = dataset,
+        dataset_text_field = "formated_text",
+        dataset_num_proc = 2,
+        max_seq_length=256,
+        tokenizer=tokenizer,
+        args=training_args
     )
-
+            
     # Start training
     trainer.train()
     trainer.push_to_hub("eddychu/Qwen2.5-Math-7B-Instruct-lora-merged")
