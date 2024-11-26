@@ -102,7 +102,7 @@ def get_dataset_alpaca(data_path, tokenizer):
     ### Response:
     {}"""
 
-    EOS_TOKEN = tokenizer.eos_token 
+    EOS_TOKEN = '<|endoftext|>'
     prompts = []
     for question, answer in zip(df['LLM_Response'], df['MisconceptionName']):
         prompt = alpaca_prompt.format(instruction, input.format(question), answer) + EOS_TOKEN
