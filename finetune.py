@@ -167,5 +167,5 @@ if __name__ == "__main__":
     # model.save_pretrained("lora_model") # Local saving
     # tokenizer.save_pretrained("lora_model") # Local saving
 
-    model.push_to_hub_merged("eddychu/Qwen2.5-Math-7B-Instruct-lora-merged", tokenizer, save_method = "merged_16bit", token = "")
+    model.push_to_hub_merged("eddychu/Qwen2.5-Math-7B-Instruct-lora-merged", tokenizer, save_method = "merged_16bit", token = "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")
     
