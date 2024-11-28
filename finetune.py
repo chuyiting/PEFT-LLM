@@ -3,7 +3,7 @@ import torch
 import pandas as pd
 from datasets import Dataset
 from trl import SFTTrainer
-from transformers import TrainingArguments
+from transformers import TrainingArguments, AutoModelForCausalLM, AutoTokenizer
 from unsloth import is_bfloat16_supported
 
 data_path = 'data/finetune_data.csv'
@@ -55,6 +55,12 @@ def get_model():
         use_rslora = False,  # We support rank stabilized LoRA
         loftq_config = None, # And LoftQ
     )
+
+    return model, tokenizer
+
+def get_model_transformers():
+    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-32B-Instruct-AWQ")
+    model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-32B-Instruct-AWQ")
 
     return model, tokenizer
 
@@ -145,7 +151,7 @@ if __name__ == "__main__":
         packing = False, # Can make training 5x faster for short sequences.
         args = TrainingArguments(
             per_device_train_batch_size = 2,
-            gradient_accumulation_steps = 4,
+            gradient_accumulation_steps = 2,
             warmup_steps = 5,
             # num_train_epochs = 1, # Set this for 1 full training run.
             max_steps = 60,
@@ -167,5 +173,5 @@ if __name__ == "__main__":
     # model.save_pretrained("lora_model") # Local saving
     # tokenizer.save_pretrained("lora_model") # Local saving
 
-    model.push_to_hub_merged("eddychu/Qwen2.5-Math-7B-Instruct-lora-merged", tokenizer, save_method = "merged_16bit", token = "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")
+    model.push_to_hub_merged("eddychu/qwen2.5-math-7b-instruct-full-ft", tokenizer, save_method = "merged_16bit", token = "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")
     
