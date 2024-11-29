@@ -328,7 +328,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
 
             # Backward pass and optimization
             optimizer.zero_grad()
-            #loss.backward()
+            loss.backward()
 
             # optimizer.step()
             # scheduler.step()
