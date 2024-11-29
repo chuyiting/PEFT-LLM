@@ -374,6 +374,7 @@ if __name__ == "__main__":
     parser.add_argument('--weight_decay', type=float, default=0.01, help="Adam weight decay")
     parser.add_argument('--model_name', type=str)
     parser.add_argument('--use_unsloth', action='store_true')
+    parser.add_argument('--hugging_face_repo', type=str)
 
 
     args = parser.parse_args()
@@ -392,10 +393,11 @@ if __name__ == "__main__":
 
     # Save model  
     token = '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'
+    hugging_face_repo = args.hugging_face_repo
     if not use_unsloth:
         login(token=token)
-        model.push_to_hub("eddychu/qwen2.5-math-7b-lora-hsft")
-        tokenizer.push_to_hub("eddychu/qwen2.5-math-7b-lora-hsft")
+        model.push_to_hub(hugging_face_repo)
+        tokenizer.push_to_hub(hugging_face_repo)
     else:
-        model.push_to_hub("eddychu/qwen2.5-math-7b-lora-hsft", token=token)
-        tokenizer.push_to_hub("eddychu/qwen2.5-math-7b-lora-hsft", token=token)
+        model.push_to_hub(hugging_face_repo, token=token)
+        tokenizer.push_to_hub(hugging_face_repo, token=token)
