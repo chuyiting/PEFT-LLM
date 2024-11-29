@@ -293,6 +293,8 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
             if num_steps >= max_steps:
                 break
             prompt_input_ids = batch['prompt_input_ids'].to(device)
+            if torch.isnan(prompt_input_ids).any():
+                print("NaN detected in input data")
             prompt_attention_mask = batch['prompt_attention_mask'].to(device)
             positive_input_ids = batch['positive_input_ids'].to(device)
             positive_attention_mask = batch['positive_attention_mask'].to(device)
@@ -331,6 +333,9 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
             optimizer.zero_grad()
             loss.backward()
 
+            for param in model.parameters():
+                if torch.isnan(param.grad).any():
+                    print(f"NaN detected in gradients of {param}")
             optimizer.step()
             scheduler.step()
 
