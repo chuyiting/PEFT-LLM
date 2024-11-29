@@ -66,7 +66,8 @@ def get_model(model_name, device, use_lora=True):
                     random_state = 3407,
                     use_rslora = False,  # We support rank stabilized LoRA
                     loftq_config = None, # And LoftQ
-                    inference_mode = False
+                    inference_mode = False,
+                    is_trainable=True 
                 )
         return model, tokenizer
 
