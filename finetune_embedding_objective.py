@@ -26,7 +26,7 @@ dtype = torch.float16 # None for auto detection. Float16 for Tesla T4, V100, Bfl
 load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
 
 
-model_name = 'unsloth/Qwen2.5-Math-7B'
+model_name = 'unsloth/Qwen2.5-32B-bnb-4bit'
 data_path = 'data/full_finetune_data.csv'
 cluster_path= 'data/misconception_cluster.csv'
 misconception_map_path = 'data/misconception_mapping.csv'
