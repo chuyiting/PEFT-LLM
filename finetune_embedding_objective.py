@@ -257,16 +257,29 @@ def train(model, dataset, device, epochs=3, batch_size=4, lr=5e-5):
             negative_attention_mask = [neg.to(device) for neg in batch['negative_attention_mask']]
 
             # Forward pass for prompt, positive, and negative examples
-            outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
-            prompt_hidden_state = outputs.last_hidden_state[:, -1, :]  # Final hidden state of prompt
+            if not use_unsloth:
+                outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
+                prompt_hidden_state = outputs.last_hidden_state[:, -1, :]  # Final hidden state of prompt
 
-            outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask)
-            positive_hidden_state = outputs_positive.last_hidden_state[:, -1, :]  # Final hidden state of positive
+                outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask)
+                positive_hidden_state = outputs_positive.last_hidden_state[:, -1, :]  # Final hidden state of positive
 
-            negative_hidden_states = []
-            for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
-                outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
-                negative_hidden_states.append(outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
+                negative_hidden_states = []
+                for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
+                    outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
+                    negative_hidden_states.append(outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
+            else:
+                outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
+                prompt_hidden_state = outputs.hidden_state[-1][:, -1, :]  # Final hidden state of prompt
+
+                outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask, output_hidden_states=True)
+                positive_hidden_state = outputs_positive.hidden_state[-1][:, -1, :]  # Final hidden state of positive
+
+                negative_hidden_states = []
+                for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
+                    outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask, output_hidden_states=True)
+                    negative_hidden_states.append(outputs_negative.hidden_state[-1][:, -1, :])  # Final hidden state of negative
+            
 
             # Compute loss
             loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
@@ -292,7 +305,12 @@ if __name__ == "__main__":
     # Train model
     train(model, dataset, device=device, epochs=epochs, batch_size=batch_size, lr=lr)
 
-    # Save model   
-    login(token='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')
-    model.push_to_hub("eddychu/Qwen2.5-7B-Instruct-AWQ-lora-hsft")
-    tokenizer.push_to_hub("eddychu/Qwen2.5-7B-Instruct-AWQ-lora-hsft")
+    # Save model  
+    token = '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'
+    if not use_unsloth:
+        login(token=token)
+        model.push_to_hub("eddychu/qwen2.5-math-7b-lora-hsft")
+        tokenizer.push_to_hub("eddychu/qwen2.5-math-7b-lora-hsft")
+    else:
+        model.push_to_hub("eddychu/qwen2.5-math-7b-lora-hsft", token=token)
+        tokenizer.push_to_hub("eddychu/qwen2.5-math-7b-lora-hsft", token=token)
