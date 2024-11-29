@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModel, AutoTokenizer
 from peft import LoraConfig,get_peft_model
 from torch.optim.lr_scheduler import LambdaLR
-from torch.cuda.amp import autocast, GradScaler
+from torch.amp import autocast, GradScaler
 
 from tqdm import tqdm
 from collections import defaultdict
@@ -66,6 +66,7 @@ def get_model(model_name, device, use_lora=True):
                     random_state = 3407,
                     use_rslora = False,  # We support rank stabilized LoRA
                     loftq_config = None, # And LoftQ
+                    inference_mode = False
                 )
         return model, tokenizer
 
@@ -334,6 +335,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
             optimizer.zero_grad()
 
             scaler.step(optimizer)
+            scaler.update() 
             scheduler.step()
 
             num_steps += 1
