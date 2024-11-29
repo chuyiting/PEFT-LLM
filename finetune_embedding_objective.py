@@ -230,6 +230,7 @@ class MultipleNegativeRankingLoss(nn.Module):
         Returns:
             torch.Tensor: Scalar loss value.
         """
+        eps = 1e-8 
         # Normalize embeddings to unit vectors
         anchor = F.normalize(anchor, p=2, dim=-1)
         positive_embeds = F.normalize(positive_embeds, p=2, dim=-1)
@@ -238,10 +239,15 @@ class MultipleNegativeRankingLoss(nn.Module):
         if len(negative_embeds_list) > 0:
             # Stack negatives along a new dimension (batch_size, num_negatives, embed_dim)
             negative_embeds = torch.stack(negative_embeds_list, dim=1)
+            print(negative_embeds.shape)
             negative_embeds = F.normalize(negative_embeds, p=2, dim=-1)
 
             # Compute cosine similarity between anchor and negatives
             negative_sim = torch.einsum('bd,bnd->bn', anchor, negative_embeds)  # Shape: (batch_size, num_negatives)
+            # Clamp similarity values before exponentiation
+            positive_sim = torch.clamp(positive_sim, min=-1.0 + eps, max=1.0 - eps)
+            negative_sim = torch.clamp(negative_sim, min=-1.0 + eps, max=1.0 - eps)
+
             exp_negatives = torch.exp(negative_sim).sum(dim=-1)  # Shape: (batch_size,)
         else:
             exp_negatives = torch.zeros(anchor.size(0), device=anchor.device)  # No negatives
@@ -251,7 +257,8 @@ class MultipleNegativeRankingLoss(nn.Module):
         exp_positive = torch.exp(positive_sim)  # Shape: (batch_size,)
 
         # Compute MNRL
-        denominator = exp_positive + exp_negatives
+        denominator = exp_positive + exp_negatives + eps 
+        print(denominator)
         loss = -torch.log(exp_positive / denominator)  # Shape: (batch_size,)
 
         # Return mean loss
@@ -319,7 +326,6 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
             optimizer.zero_grad()
             loss.backward()
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             scheduler.step()
 
