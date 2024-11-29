@@ -1,207 +1,241 @@
-from unsloth import FastLanguageModel
-
 import pandas as pd
+
 from datasets import Dataset
-from trl import SFTTrainer
-from transformers import TrainingArguments, get_scheduler
-from unsloth import is_bfloat16_supported
 
 import torch
-from torch.utils.data import Dataset, DataLoader
-from torch.optim import AdamW
+from torch import nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, Dataset
+from transformers import AutoModel, AutoTokenizer, Trainer, TrainingArguments, LoraConfig, QLoRAForCausalLM
+from collections import defaultdict
+
+import argparse
+import random
+from peft import LoraConfig, PeftModel, get_peft_model
 from tqdm import tqdm
 
+from huggingface_hub import login
 
 
-data_path = 'data/finetune_data.csv'
+model_name = 'Qwen/Qwen2.5-Math-7B'
+data_path = 'data/full_finetune_data.csv'
+cluster_path= 'data/misconception_cluster.csv'
+misconception_map_path = 'data/misconception_mapping.csv'
+max_length = 256
+epochs=5
+batch_size=4
+lr=5e-5
 
-max_seq_length = 256 # Choose any! We auto support RoPE Scaling internally!
-dtype = None # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
-load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
-
-# 4bit pre quantized models we support for 4x faster downloading + no OOMs.
-fourbit_models = [
-    "unsloth/Meta-Llama-3.1-8B-bnb-4bit",      # Llama-3.1 15 trillion tokens model 2x faster!
-    "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
-    "unsloth/Meta-Llama-3.1-70B-bnb-4bit",
-    "unsloth/Meta-Llama-3.1-405B-bnb-4bit",    # We also uploaded 4bit for 405b!
-    "unsloth/Mistral-Nemo-Base-2407-bnb-4bit", # New Mistral 12b 2x faster!
-    "unsloth/Mistral-Nemo-Instruct-2407-bnb-4bit",
-    "unsloth/mistral-7b-v0.3-bnb-4bit",        # Mistral v3 2x faster!
-    "unsloth/mistral-7b-instruct-v0.3-bnb-4bit",
-    "unsloth/Phi-3.5-mini-instruct",           # Phi-3.5 2x faster!
-    "unsloth/Phi-3-medium-4k-instruct",
-    "unsloth/gemma-2-9b-bnb-4bit",
-    "unsloth/gemma-2-27b-bnb-4bit",            # Gemma 2x faster!
-] # More models at https://huggingface.co/unsloth
-
-def get_model():
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        # Can select any from the below:
-        # "unsloth/Qwen2.5-0.5B", "unsloth/Qwen2.5-1.5B", "unsloth/Qwen2.5-3B"
-        # "unsloth/Qwen2.5-14B",  "unsloth/Qwen2.5-32B",  "unsloth/Qwen2.5-72B",
-        # And also all Instruct versions and Math. Coding verisons!
-        model_name = "unsloth/Qwen2.5-Math-7B-Instruct",
-        max_seq_length = max_seq_length,
-        dtype = dtype,
-        load_in_4bit = load_in_4bit,
-        # token = "hf_...", # use one if using gated models like meta-llama/Llama-2-7b-hf
+# Define model
+def get_model(model_name, device):
+    model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+    # Apply LoRA configuration
+    lora_config = LoraConfig(
+        r=8, 
+        lora_alpha=16, 
+        lora_dropout=0.1, 
+        target_modules=["all_linear"],
+        
     )
-
-    model = FastLanguageModel.get_peft_model(
-        model,
-        r = 16, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
-        target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
-                        "gate_proj", "up_proj", "down_proj",],
-        lora_alpha = 16,
-        lora_dropout = 0, # Supports any, but = 0 is optimized
-        bias = "none",    # Supports any, but = "none" is optimized
-        # [NEW] "unsloth" uses 30% less VRAM, fits 2x larger batch sizes!
-        use_gradient_checkpointing = "unsloth", # True or "unsloth" for very long context
-        random_state = 3407,
-        use_rslora = False,  # We support rank stabilized LoRA
-        loftq_config = None, # And LoftQ
-    )
+    model = get_peft_model(model, lora_config)
+    model.to(device)
 
     return model, tokenizer
 
+def prepare_cluster_dict(cluster_path):
+    df = pd.read_csv(cluster_path)
+    cluster_dict = defaultdict(list)
+    for _, row in df.iterrows():
+        cluster_dict[row['Cluster']].append(row['MisconceptionId'])
+    return cluster_dict
 
-class AlpacaMathMisconceptionDataset(Dataset):
-    def __init__(self, data_path, tokenizer, max_seq_length):
-        """
-        Initialize the dataset.
+def prepare_misconception_map(misconception_map_path):
+    df = pd.read_csv(misconception_map_path, header=0)
+    return dict(zip(df['misconceptionId'], df['misconceptionName']))
 
-        Args:
-        - data_path (str): Path to the CSV file.
-        - tokenizer: Tokenizer object for text tokenization.
-        - max_seq_length (int): Maximum sequence length for tokenization.
-        """
-        self.df = pd.read_csv(data_path, header=0)
+# Define dataset
+class MisconceptionDataset(Dataset):
+    def __init__(self, tokenizer, k, data_path, cluster_path, misconception_map_path):
         self.tokenizer = tokenizer
-        self.max_seq_length = max_seq_length
 
-        # Define the prompt templates
-        self.instruction = (
-            "You are a math expert. Help users find the misconception in the wrong math answer."
-        )
-        self.input_template = """Given a math question, its correct answer and wrong answer, \
-tell me what kind of misconception might the student who answers the wrong answer have. \
-\nHere is an example: Question Text: Which type of graph is represented by the equation \\( y=\\frac{{1}}{{x}} \\)?\n\
-Correct Answer Text: A reciprocal graph\n\
-Wrong Answer Text: A quadratic graph\nThe misconception for the wrong answer is: Confuses reciprocal and quadratic graphs.\n\
-\nNow tell me what misconception does the following wrong answer imply:\n\n {}"""
-        self.alpaca_prompt = """Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
+        self.cluster_dict = prepare_cluster_dict(cluster_path)
+        self.misconception_map = prepare_misconception_map(misconception_map_path)
+        data = pd.read_csv(data_path, header=0)
 
-### Instruction:
-{}
+        self.question_text = data['QuestionText'] 
+        self.construct_name = data['ConstructName']
+        self.subject_name = data['SubjectName']
+        self.correct_answer_text = data['CorrectAnswerText']
+        self.wrong_answer_text = data['WrongAnswerText']
+        self.misconception_id = data['MisconceptionId']
+        self.misconception_name = data['MisconceptionName']
 
-### Input:
-{}
+    def get_negative_examples(self, misconception_id, k, cluster_dict):
+        for _, misconceptions in cluster_dict.items():
+            if misconception_id in misconceptions:
+                # Remove the given misconception_id from the list
+                related_misconceptions = [id for id in misconceptions if id != misconception_id]
+                
+                # If k is smaller than the size of the cluster, return k random misconceptions
+                if len(related_misconceptions) >= k:
+                    return random.sample(related_misconceptions, k)
+                else:
+                    # If there are fewer than k misconceptions, return all of them
+                    return related_misconceptions
+        return []
+    
+    def format_prompt(self, question_text, construct_name, subject_name, correct_answer_text, wrong_answer_text):
+
+        prompt = f"""Here is a question about {construct_name} ({subject_name}):
+        
+- Question: {question_text}
+- Correct Answer: {correct_answer_text}
+- Wrong Answer: {wrong_answer_text}
+        
+Please identify the likely misconception or reasoning error that led the student to choose the wrong answer. Focus only on explaining the misconception.
 """
-        self.eos_token = tokenizer.eos_token or ""  # Use EOS token if available
+    
+        message = [
+            {"role": "system", "content": "You are a proficient Mathematics teacher. Your goal is to identify the likely misconception or reasoning error that led the student to choose the wrong answer."},
+            {"role": "user", "content": prompt.strip()}
+        ]
+    
 
-        # Prepare formatted text prompts
-        self.prompts = []
-        self.label = []
-        for question, answer in zip(self.df["LLM_Response"], self.df["MisconceptionName"]):
-            input_text = self.input_template.format(question)
-            prompt = self.alpaca_prompt.format(
-                self.instruction, input_text
-            ) + self.eos_token
-            self.prompts.append(prompt)
-            self.label.append(answer)
+        return self.tokenizer.apply_chat_template(message, tokenize=False, add_generation_prompt=False)
 
     def __len__(self):
-        return len(self.prompts)
+        return len(self.question_text)
 
     def __getitem__(self, idx):
-        """
-        Return a tokenized version of the formatted prompt at the specified index.
+        question = self.question_text[idx]
+        construct = self.construct_name[idx]
+        subject = self.subject_name[idx]
+        correct = self.correct_answer_text[idx]
+        wrong = self.wrong_answer_text[idx]
+        
+        prompt = self.format_prompt(question, construct, subject, correct, wrong)
+        prompt_enc = self.tokenizer(prompt, padding="max_length", truncation=True, max_length=max_length, return_tensors="pt")
 
-        Args:
-        - idx (int): Index of the data sample.
+        positive = self.misconception_name[idx]
+        positive_enc = self.tokenizer(positive, padding="max_length", truncation=True, max_length=max_length, return_tensors="pt")
 
-        Returns:
-        - dict: Tokenized input with input IDs and attention masks.
-        """
-        prompt = self.prompts[idx]
-        label = self.label[idx]
+        negative_ids = self.get_negative_examples(self.misconception_id[idx], self.k, self.cluster_dict)
+        negative = list(map(lambda x: self.misconception_map.get(x, None), negative_ids))
+        negative_encs = [self.tokenizer(neg, padding="max_length", truncation=True, max_length=max_length, return_tensors="pt") for neg in negative]
 
-        # Tokenize the input and labels
-        input_encoding = self.tokenizer(prompt, padding='max_length', truncation=True, max_length=self.max_seq_length, return_tensors='pt')
-        label_encoding = self.tokenizer(label, padding='max_length', truncation=True, max_length=self.max_seq_length, return_tensors='pt')
-
-        # Extract the token IDs and attention masks
-        input_ids = input_encoding['input_ids'].squeeze(0)  # Remove the batch dimension (shape: [max_seq_length])
-        attention_mask_input= input_encoding['attention_mask'].squeeze(0)  # Shape: [max_seq_length]
-        label_ids = label_encoding['input_ids'].squeeze(0)  # Shape: [max_seq_length]
-        attention_mask_label = label_encoding['attention_mask'].squeeze(0) 
-
-        # Flatten the tensors to remove extra dimensions added by return_tensors
+        # Return the tokenized inputs and attention masks
         return {
-            'input_ids': input_ids,
-            'attention_mask_input': attention_mask_input,
-            'labels': label_ids,
-            'attention_mask_label': attention_mask_label
+            'prompt_input_ids': prompt_enc.input_ids.squeeze(0),
+            'prompt_attention_mask': prompt_enc.attention_mask.squeeze(0),
+            'positive_input_ids': positive_enc.input_ids.squeeze(0),
+            'positive_attention_mask': positive_enc.attention_mask.squeeze(0),
+            'negative_input_ids': [neg_enc.input_ids.squeeze(0) for neg_enc in negative_encs],
+            'negative_attention_mask': [neg_enc.attention_mask.squeeze(0) for neg_enc in negative_encs]
         }
 
+# Multiple Negative Ranking Loss
+class MultipleNegativeRankingLoss(nn.Module):
+    def __init__(self, margin=1.0):
+        super().__init__()
+        self.margin = margin
 
-if __name__ == "__main__":
-    model, tokenizer = get_model()
-    dataset = AlpacaMathMisconceptionDataset(data_path, tokenizer, max_seq_length)
-    dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
-    
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model.to(device)
-    gradient_accumulation_steps = 4
-    global_step = 0
+    def forward(self, anchor, positive_embeds, negative_embeds_list):
+        """
+        Calculates the Multiple Negative Loss (MNRL) using cosine similarity.
 
-    # Optimizer
-    optimizer = AdamW(model.parameters(), lr=2e-4, weight_decay=0.01)
+        Args:
+            anchor (torch.Tensor): Anchor embeddings, shape (batch_size, embed_dim).
+            positive_embeds (torch.Tensor): Positive embeddings, shape (batch_size, embed_dim).
+            negative_embeds_list (list[torch.Tensor]): List of tensors, 
+                each tensor is (batch_size, embed_dim) for negatives.
 
-    # Scheduler
-    num_training_steps = 60  # max_steps
-    lr_scheduler = get_scheduler(
-        "linear",
-        optimizer=optimizer,
-        num_warmup_steps=5,
-        num_training_steps=num_training_steps,
-    )
+        Returns:
+            torch.Tensor: Scalar loss value.
+        """
+        # Normalize embeddings to unit vectors
+        anchor = F.normalize(anchor, p=2, dim=-1)
+        positive_embeds = F.normalize(positive_embeds, p=2, dim=-1)
 
-    for epoch in range(1):  # Adjust for more epochs if needed
-        for batch in tqdm(dataloader, desc="Training"):
-            # Move batch to device
-            input_ids = batch['input_ids'].to(device)
-            attention_mask_input = batch['attention_mask_input'].to(device)
-            labels = batch['labels'].to(device)
-            attention_mask_label = batch['attention_mask_label'].to(device)
+        # If there are negatives, stack them into a single tensor
+        if len(negative_embeds_list) > 0:
+            # Stack negatives along a new dimension (batch_size, num_negatives, embed_dim)
+            negative_embeds = torch.stack(negative_embeds_list, dim=1)
+            negative_embeds = F.normalize(negative_embeds, p=2, dim=-1)
 
+            # Compute cosine similarity between anchor and negatives
+            negative_sim = torch.einsum('bd,bnd->bn', anchor, negative_embeds)  # Shape: (batch_size, num_negatives)
+            exp_negatives = torch.exp(negative_sim).sum(dim=-1)  # Shape: (batch_size,)
+        else:
+            exp_negatives = torch.zeros(anchor.size(0), device=anchor.device)  # No negatives
 
-            # Forward pass
-            outputs = model(input_ids, attention_mask_input)
-            
-            loss = outputs.loss
-            loss = loss / gradient_accumulation_steps  # Normalize loss
+        # Compute cosine similarity between anchor and positive
+        positive_sim = torch.sum(anchor * positive_embeds, dim=-1)  # Shape: (batch_size,)
+        exp_positive = torch.exp(positive_sim)  # Shape: (batch_size,)
 
-            # Backward pass
+        # Compute MNRL
+        denominator = exp_positive + exp_negatives
+        loss = -torch.log(exp_positive / denominator)  # Shape: (batch_size,)
+
+        # Return mean loss
+        return loss.mean()
+
+# Finetuning script
+def train(model, dataset, device="cuda", epochs=3, batch_size=4, lr=5e-5):
+
+    # Prepare data
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+    loss_fn = MultipleNegativeRankingLoss()
+
+    model.train()
+    for epoch in range(epochs):
+        total_loss = 0
+        for batch in tqdm(dataloader):
+            prompt_input_ids = batch['prompt_input_ids'].to(device)
+            prompt_attention_mask = batch['prompt_attention_mask'].to(device)
+            positive_input_ids = batch['positive_input_ids'].to(device)
+            positive_attention_mask = batch['positive_attention_mask'].to(device)
+            negative_input_ids = [neg.to(device) for neg in batch['negative_input_ids']]
+            negative_attention_mask = [neg.to(device) for neg in batch['negative_attention_mask']]
+
+            # Forward pass for prompt, positive, and negative examples
+            outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
+            prompt_hidden_state = outputs.last_hidden_state[:, -1, :]  # Final hidden state of prompt
+
+            outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask)
+            positive_hidden_state = outputs_positive.last_hidden_state[:, -1, :]  # Final hidden state of positive
+
+            negative_hidden_states = []
+            for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
+                outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
+                negative_hidden_states.append(outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
+
+            # Compute loss
+            loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
+
+            # Backward pass and optimization
+            optimizer.zero_grad()
             loss.backward()
+            optimizer.step()
 
-            if (global_step + 1) % gradient_accumulation_steps == 0:
-                optimizer.step()
-                lr_scheduler.step()
-                optimizer.zero_grad()
+            print(f"Loss: {loss.item()}")
 
-            global_step += 1
+        print(f"Epoch {epoch + 1}/{epochs}, Loss: {total_loss / len(dataloader)}")
 
-            if global_step >= num_training_steps:
-                break
-        if global_step >= num_training_steps:
-            break
+# Example usage
+if __name__ == "__main__":
+    # Load model and tokenizer
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model, tokenizer = get_model(model_name=model_name, device=device)
 
-    print("Training complete.")
+    # Load dataset
+    dataset = MisconceptionDataset(tokenizer, k=25, data_path=data_path, cluster_path=cluster_path, misconception_map_path=misconception_map_path)
 
-    # model.save_pretrained("lora_model") # Local saving
-    # tokenizer.save_pretrained("lora_model") # Local saving
+    # Train model
+    train(model, dataset, device="cuda", epochs=epochs, batch_size=batch_size, lr=lr)
 
-    model.push_to_hub_merged("eddychu/Qwen2.5-Math-7B-Instruct-lora-merged", tokenizer, save_method = "merged_16bit", token = "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")
-    
+    # Save model
+    login(token='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')
+    model.push_to_hub("qwen2.5-math-7b-lora-hsft")
+    tokenizer.push_to_hub("qwen2.5-math-7b-lora-hsft")
