@@ -328,12 +328,10 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
 
             # Backward pass and optimization
             optimizer.zero_grad()
-            loss.backward()
+            #loss.backward()
 
-            for param_group in optimizer.param_groups:
-                print("Current Learning Rate:", param_group['lr'])
-            optimizer.step()
-            scheduler.step()
+            # optimizer.step()
+            # scheduler.step()
 
             num_steps += 1
             print(f"Loss: {loss.item()}")
