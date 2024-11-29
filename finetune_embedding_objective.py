@@ -7,7 +7,6 @@ from torch.utils.data import DataLoader, Dataset
 
 from transformers import AutoModel, AutoTokenizer
 from peft import LoraConfig,get_peft_model
-from accelerate import Accelerator
 
 from tqdm import tqdm
 from collections import defaultdict
@@ -40,11 +39,8 @@ def get_model(model_name, device):
     )
     
     model = get_peft_model(model, lora_config)
-
-    accelerator = Accelerator(fp16=True)
-    model, tokenizer = accelerator.prepare(model, tokenizer)
     model.gradient_checkpointing_enable()
-    
+
     model.to(device)
 
     return model, tokenizer
