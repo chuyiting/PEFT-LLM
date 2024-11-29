@@ -32,8 +32,7 @@ def get_model(model_name, device):
         r=8, 
         lora_alpha=16, 
         lora_dropout=0.1, 
-        target_modules=["all_linear"],
-        
+        target_modules="all_linear",
     )
     model = get_peft_model(model, lora_config)
     model.to(device)
@@ -186,6 +185,8 @@ def train(model, dataset, device="cuda", epochs=3, batch_size=4, lr=5e-5):
     loss_fn = MultipleNegativeRankingLoss()
 
     model.train()
+    for param in model.base_model.parameters():
+        print(param.requires_grad) 
     for epoch in range(epochs):
         total_loss = 0
         for batch in tqdm(dataloader):
