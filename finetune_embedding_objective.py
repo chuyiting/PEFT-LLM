@@ -20,7 +20,7 @@ cluster_path= 'data/misconception_cluster.csv'
 misconception_map_path = 'data/misconception_mapping.csv'
 max_length = 256
 epochs=5
-batch_size=4
+batch_size=2
 lr=5e-5
 
 # Define model
