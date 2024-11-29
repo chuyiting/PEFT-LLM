@@ -244,16 +244,18 @@ class MultipleNegativeRankingLoss(nn.Module):
 
             # Compute cosine similarity between anchor and negatives
             negative_sim = torch.einsum('bd,bnd->bn', anchor, negative_embeds)  # Shape: (batch_size, num_negatives)
+            
             # Clamp similarity values before exponentiation
-            positive_sim = torch.clamp(positive_sim, min=-1.0 + eps, max=1.0 - eps)
             negative_sim = torch.clamp(negative_sim, min=-1.0 + eps, max=1.0 - eps)
-
             exp_negatives = torch.exp(negative_sim).sum(dim=-1)  # Shape: (batch_size,)
         else:
             exp_negatives = torch.zeros(anchor.size(0), device=anchor.device)  # No negatives
 
         # Compute cosine similarity between anchor and positive
         positive_sim = torch.sum(anchor * positive_embeds, dim=-1)  # Shape: (batch_size,)
+        
+        # Clamp similarity values before exponentiation
+        positive_sim = torch.clamp(positive_sim, min=-1.0 + eps, max=1.0 - eps)
         exp_positive = torch.exp(positive_sim)  # Shape: (batch_size,)
 
         # Compute MNRL
