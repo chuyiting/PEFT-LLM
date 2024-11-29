@@ -232,7 +232,7 @@ class MultipleNegativeRankingLoss(nn.Module):
         """
         print(f'anchor: {anchor}')
         print(f'positive embed: {positive_embeds}')
-        print(f'negative embed: {negative_embeds}')
+        print(f'negative embed: {negative_embeds_list}')
         eps = 1e-8 
         # Normalize embeddings to unit vectors
         anchor = F.normalize(anchor, p=2, dim=-1)
