@@ -67,7 +67,6 @@ def get_model(model_name, device, use_lora=True):
                     use_rslora = False,  # We support rank stabilized LoRA
                     loftq_config = None, # And LoftQ
                     inference_mode = False,
-                    is_trainable=True 
                 )
         return model, tokenizer
 
@@ -313,6 +312,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                     for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
                         outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
                         negative_hidden_states.append(outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
+                    loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
             else:
                 with autocast(device_type='cuda'):
                     outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
@@ -325,11 +325,9 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                     for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
                         outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask, output_hidden_states=True)
                         negative_hidden_states.append(outputs_negative.hidden_states[-1][:, -1, :])  # Final hidden state of negative
+                    loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
                 
 
-            # Compute loss
-            with autocast(device_type='cuda'):
-                loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
             scaler.scale(loss).backward()
 
             # Backward pass and optimization
