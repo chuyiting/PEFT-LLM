@@ -340,6 +340,9 @@ if __name__ == "__main__":
     parser.add_argument('--epoch', type=int, default=4, help="Number of training epochs (default: 4)")
     parser.add_argument('--loss_type', type=str, default='triplet', choices=['multiple_negative_ranking', 'triplet', 'info_nce'], 
                         help="Type of loss function to use (default: triplet)")
+    parser.add_argument('--k', type=int, default=25, choices=['multiple_negative_ranking', 'triplet', 'info_nce'], 
+                        help="number of negative examplles")
+
 
     args = parser.parse_args()
 
@@ -348,7 +351,7 @@ if __name__ == "__main__":
     model, tokenizer = get_model(model_name=model_name, device=device)
 
     # Load dataset
-    dataset = MisconceptionDataset(tokenizer, k=25, data_path=data_path, cluster_path=cluster_path, misconception_map_path=misconception_map_path)
+    dataset = MisconceptionDataset(tokenizer, k=args.k, data_path=data_path, cluster_path=cluster_path, misconception_map_path=misconception_map_path)
 
     # Train model
     train(model, dataset, device=device, loss_fn=get_loss_function(args.loss_type), epochs=args.epoch, batch_size= args.batch_size, lr=args.lr)
