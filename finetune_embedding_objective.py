@@ -279,8 +279,8 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     optimizer_state = optimizer.state_dict()
-    optimizer_state['found_inf_per_device'] = {}
-    
+    optimizer_state['found_inf_per_device'] = {'cuda': torch.tensor([False])}  # Assuming you're on 'cuda'
+
     scheduler = LambdaLR(optimizer, lr_lambda=lambda step: max(0.0, 1.0 - step / float(max_steps)))
     scaler = GradScaler()
 
