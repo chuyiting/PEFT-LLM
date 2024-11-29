@@ -14,7 +14,7 @@ import random
 from huggingface_hub import login
 
 
-model_name = 'Qwen/Qwen2.5-Math-7B'
+model_name = 'Qwen/Qwen2.5-Math-1.5B'
 data_path = 'data/full_finetune_data.csv'
 cluster_path= 'data/misconception_cluster.csv'
 misconception_map_path = 'data/misconception_mapping.csv'
@@ -24,22 +24,24 @@ batch_size=4
 lr=5e-5
 
 # Define model
-def get_model(model_name, device):
+def get_model(model_name, device, use_lora=False):
+    
     torch.cuda.empty_cache()
     model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-    # Apply LoRA configuration
-    lora_config = LoraConfig(
-        r=8, 
-        lora_alpha=16, 
-        lora_dropout=0.1, 
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
-                      "gate_proj", "up_proj", "down_proj"],
-        bias = 'none'
-    )
-    
-    model = get_peft_model(model, lora_config)
-    model.gradient_checkpointing_enable()
+
+    if use_lora:
+        # Apply LoRA configuration
+        lora_config = LoraConfig(
+            r=8, 
+            lora_alpha=16, 
+            lora_dropout=0.1, 
+            target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
+                        "gate_proj", "up_proj", "down_proj"],
+            bias = 'none'
+        )
+        
+        model = get_peft_model(model, lora_config)
 
     model.to(device)
 
@@ -240,7 +242,7 @@ if __name__ == "__main__":
     # Train model
     train(model, dataset, device="cuda", epochs=epochs, batch_size=batch_size, lr=lr)
 
-    # Save model
+    # Save model   
     login(token='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')
-    model.push_to_hub("qwen2.5-math-7b-lora-hsft")
-    tokenizer.push_to_hub("qwen2.5-math-7b-lora-hsft")
+    model.push_to_hub("eddychu/qwen2.5-math-1.5b-fft")
+    tokenizer.push_to_hub("eddychu/qwen2.5-math-1.5b-fft")
