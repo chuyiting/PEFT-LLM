@@ -295,7 +295,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5):
             else:
                 outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
                 print(len(outputs.hidden_states))
-                print(outputs.hidden_states[-1])
+                print(outputs.hidden_states[-1].shape)
                 prompt_hidden_state = outputs.hidden_states[-1][:, -1, :]  # Final hidden state of prompt
 
                 outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask, output_hidden_states=True)
