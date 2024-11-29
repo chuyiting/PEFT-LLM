@@ -26,7 +26,7 @@ dtype = None # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for
 load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
 
 
-model_name = 'PrunaAI/Qwen-Qwen2-Math-7B-AWQ-4bit-smashed'
+model_name = 'Qwen/Qwen2.5-Math-7B'
 data_path = 'data/full_finetune_data.csv'
 cluster_path= 'data/misconception_cluster.csv'
 misconception_map_path = 'data/misconception_mapping.csv'
@@ -271,7 +271,7 @@ class MultipleNegativeRankingLoss(nn.Module):
         return loss.mean()
 
 # Finetuning script
-def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01, verbose=False):
+def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01, verbose=True):
 
     print(f'Number of training epoch: {epochs}')
     print(f'Batch size: {batch_size}')
