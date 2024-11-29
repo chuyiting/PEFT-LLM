@@ -11,6 +11,7 @@ from peft import LoraConfig,get_peft_model
 from tqdm import tqdm
 from collections import defaultdict
 import random
+import argparse
 
 from unsloth import FastLanguageModel, is_bfloat16_supported
 from unsloth.chat_templates import get_chat_template
@@ -19,15 +20,15 @@ from huggingface_hub import login
 # unsloth
 use_unsloth=True
 max_seq_length = 512 # Choose any! We auto support RoPE Scaling internally!
-dtype = torch.float32 # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
-load_in_4bit = False # Use 4bit quantization to reduce memory usage. Can be False.
+dtype = torch.float16 # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
+load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
 
 
 model_name = 'unsloth/Qwen2.5-Math-7B'
 data_path = 'data/full_finetune_data.csv'
 cluster_path= 'data/misconception_cluster.csv'
 misconception_map_path = 'data/misconception_mapping.csv'
-max_length = 128
+max_length = 256
 epochs=4
 batch_size=4
 lr=1e-5
@@ -190,6 +191,26 @@ Please identify the likely misconception or reasoning error that led the student
             'negative_attention_mask': [neg_enc.attention_mask.squeeze(0) for neg_enc in negative_encs]
         }
 
+
+class TripletLoss(nn.Module):
+    def __init__(self, margin=1.0):
+        super().__init__()
+        self.margin = margin
+
+    def forward(self, anchor, positive_embeds, negative_embeds_list):
+        # Compute distances
+        anchor = F.normalize(anchor, p=2, dim=-1)
+        positive_embeds = F.normalize(positive_embeds, p=2, dim=-1)
+        negative_embeds = torch.stack(negative_embeds_list, dim=1)  # (batch_size, num_negatives, embed_dim)
+        negative_embeds = F.normalize(negative_embeds, p=2, dim=-1)
+
+        positive_distance = torch.sum((anchor - positive_embeds) ** 2, dim=-1)  # Shape: (batch_size,)
+        negative_distance = torch.sum((anchor.unsqueeze(1) - negative_embeds) ** 2, dim=-1)  # Shape: (batch_size, num_negatives)
+
+        # Compute loss
+        loss = F.relu(self.margin + positive_distance.unsqueeze(1) - negative_distance)  # Shape: (batch_size, num_negatives)
+        return loss.mean()
+    
 # Multiple Negative Ranking Loss
 class MultipleNegativeRankingLoss(nn.Module):
     def __init__(self, margin=1.0):
@@ -237,12 +258,11 @@ class MultipleNegativeRankingLoss(nn.Module):
         return loss.mean()
 
 # Finetuning script
-def train(model, dataset, device, epochs=3, batch_size=4, lr=5e-5):
+def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5):
 
     # Prepare data
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
-    loss_fn = MultipleNegativeRankingLoss()
 
     model.train()
     for name, param in model.base_model.named_parameters():
@@ -296,8 +316,28 @@ def train(model, dataset, device, epochs=3, batch_size=4, lr=5e-5):
 
         print(f"Epoch {epoch + 1}/{epochs}, Loss: {total_loss / len(dataloader)}")
 
+def get_loss_function(loss_type):
+    """Returns the appropriate loss function based on the `loss_type`."""
+    if loss_type == "multiple_negative_ranking":
+        return MultipleNegativeRankingLoss()
+    elif loss_type == "triplet":
+        return TripletLoss()
+    else:
+        raise ValueError(f"Unsupported loss_type: {loss_type}")
+    
 # Example usage
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Fine-tuning script with customizable arguments")
+
+    # Add arguments
+    parser.add_argument('--batch_size', type=int, default=4, help="Batch size for training (default: 4)")
+    parser.add_argument('--lr', type=float, default=1e-5, help="Learning rate (default: 1e-5)")
+    parser.add_argument('--epoch', type=int, default=4, help="Number of training epochs (default: 4)")
+    parser.add_argument('--loss_type', type=str, default='triplet', choices=['multiple_negative_ranking', 'triplet', 'info_nce'], 
+                        help="Type of loss function to use (default: triplet)")
+
+    args = parser.parse_args()
+
     # Load model and tokenizer 
     device = torch.device("cuda" if torch.cuda.is_available() else"cpu")
     model, tokenizer = get_model(model_name=model_name, device=device)
@@ -306,7 +346,7 @@ if __name__ == "__main__":
     dataset = MisconceptionDataset(tokenizer, k=25, data_path=data_path, cluster_path=cluster_path, misconception_map_path=misconception_map_path)
 
     # Train model
-    train(model, dataset, device=device, epochs=epochs, batch_size=batch_size, lr=lr)
+    train(model, dataset, device=device, loss_fn=get_loss_function(args.loss_type), epochs=args.epoch, batch_size= args.batch_size, lr=args.lr)
 
     # Save model  
     token = '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'
