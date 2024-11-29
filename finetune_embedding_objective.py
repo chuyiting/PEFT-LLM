@@ -194,7 +194,7 @@ class MultipleNegativeRankingLoss(nn.Module):
         return loss.mean()
 
 # Finetuning script
-def train(model, dataset, device="cuda", epochs=3, batch_size=4, lr=5e-5):
+def train(model, dataset, device, epochs=3, batch_size=4, lr=5e-5):
 
     # Prepare data
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
@@ -248,7 +248,7 @@ if __name__ == "__main__":
     dataset = MisconceptionDataset(tokenizer, k=25, data_path=data_path, cluster_path=cluster_path, misconception_map_path=misconception_map_path)
 
     # Train model
-    train(model, dataset, device="cuda", epochs=epochs, batch_size=batch_size, lr=lr)
+    train(model, dataset, device=device, epochs=epochs, batch_size=batch_size, lr=lr)
 
     # Save model   
     login(token='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')
