@@ -319,29 +319,29 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                     negative_hidden_states.append(outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
                 loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
             else:
-                #with autocast(device_type='cuda'):
-                outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
-                prompt_hidden_state = outputs.hidden_states[-1][:, -1, :]  # Final hidden state of the last token of prompt
+                with autocast(device_type='cuda'):
+                    outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
+                    prompt_hidden_state = outputs.hidden_states[-1][:, -1, :]  # Final hidden state of the last token of prompt
 
-                outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask, output_hidden_states=True)
-                positive_hidden_state = outputs_positive.hidden_states[-1][:, -1, :]  # Final hidden state of the last token of positive misconception
+                    outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask, output_hidden_states=True)
+                    positive_hidden_state = outputs_positive.hidden_states[-1][:, -1, :]  # Final hidden state of the last token of positive misconception
 
-                negative_hidden_states = []
-                for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
-                    outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask, output_hidden_states=True)
-                    negative_hidden_states.append(outputs_negative.hidden_states[-1][:, -1, :])  # Final hidden state of the last token of negative misconceptions
-                loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
+                    negative_hidden_states = []
+                    for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
+                        outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask, output_hidden_states=True)
+                        negative_hidden_states.append(outputs_negative.hidden_states[-1][:, -1, :])  # Final hidden state of the last token of negative misconceptions
+                    loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
                 
 
-            loss.backward()
-            #scaler.scale(loss).backward()
+            #loss.backward()
+            scaler.scale(loss).backward()
 
             # Backward pass and optimization
             optimizer.zero_grad()
 
-            # scaler.step(optimizer)
-            # scaler.update() 
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update() 
+            # optimizer.step()
             scheduler.step()
 
             num_steps += 1
@@ -377,9 +377,11 @@ if __name__ == "__main__":
                         help="number of negative examplles")
     parser.add_argument('--max_steps', type=int, default=1000, help="max number of steps for learning rate scheduler")
     parser.add_argument('--weight_decay', type=float, default=0.01, help="Adam weight decay")
+    parser.add_argument('--use_unsloth', action='store_true')
 
 
     args = parser.parse_args()
+    use_unsloth = args.use_unsloth
 
     # Load model and tokenizer 
     device = torch.device("cuda" if torch.cuda.is_available() else"cpu")
