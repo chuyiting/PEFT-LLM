@@ -280,7 +280,6 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
     scheduler = LambdaLR(optimizer, lr_lambda=lambda step: max(0.0, 1.0 - step / float(max_steps)))
     scaler = GradScaler()
 
-    model_float32 = model.float()
     model.train()
     if verbose:
         for name, param in model.base_model.named_parameters():
@@ -331,20 +330,11 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                 loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
             scaler.scale(loss).backward()
 
-            # Copy gradients to float32 version before optimizer step
-            for param, param_float32 in zip(model.parameters(), model_float32.parameters()):
-                if param.grad is not None:
-                    param_float32.grad = param.grad.float()
-
             # Backward pass and optimization
             optimizer.zero_grad()
 
             scaler.step(optimizer)
             scheduler.step()
-
-            # Copy updated parameters back to the float16 model
-            for param, param_float32 in zip(model.parameters(), model_float32.parameters()):
-                param.data = param_float32.data.half()
 
             num_steps += 1
             print(f"Loss: {loss.item()}")
