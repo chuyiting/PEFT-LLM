@@ -11,10 +11,19 @@ from peft import LoraConfig,get_peft_model
 from tqdm import tqdm
 from collections import defaultdict
 import random
+
+from unsloth import FastLanguageModel, is_bfloat16_supported
+from unsloth.chat_templates import get_chat_template
 from huggingface_hub import login
 
+# unsloth
+use_unsloth=True
+max_seq_length = 512 # Choose any! We auto support RoPE Scaling internally!
+dtype = None # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
+load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
 
-model_name = 'Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4'
+
+model_name = 'unsloth/Qwen2.5-Math-7B'
 data_path = 'data/full_finetune_data.csv'
 cluster_path= 'data/misconception_cluster.csv'
 misconception_map_path = 'data/misconception_mapping.csv'
@@ -27,6 +36,39 @@ lr=5e-5
 def get_model(model_name, device, use_lora=True):
     
     torch.cuda.empty_cache()
+
+    if use_unsloth:
+        model, tokenizer = FastLanguageModel.from_pretrained(
+            model_name = model_name,
+            max_seq_length = max_seq_length,
+            dtype = dtype,
+            load_in_4bit = load_in_4bit,
+        )
+
+        tokenizer = get_chat_template(
+            tokenizer,
+            chat_template = "alpaca", # Supports zephyr, chatml, mistral, llama, alpaca, vicuna, vicuna_old, unsloth
+            map_eos_token = True, # Maps <|im_end|> to </s> instead
+        )
+
+        if use_lora:
+            model = FastLanguageModel.get_peft_model(
+                    model,
+                    r = 16, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
+                    target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
+                                    "gate_proj", "up_proj", "down_proj",],
+                    lora_alpha = 16,
+                    lora_dropout = 0, # Supports any, but = 0 is optimized
+                    bias = "none",    # Supports any, but = "none" is optimized
+                    # [NEW] "unsloth" uses 30% less VRAM, fits 2x larger batch sizes!
+                    use_gradient_checkpointing = "unsloth", # True or "unsloth" for very long context
+                    random_state = 3407,
+                    use_rslora = False,  # We support rank stabilized LoRA
+                    loftq_config = None, # And LoftQ
+                )
+        return model, tokenizer
+
+ 
     model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 
@@ -241,7 +283,7 @@ def train(model, dataset, device, epochs=3, batch_size=4, lr=5e-5):
 # Example usage
 if __name__ == "__main__":
     # Load model and tokenizer 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else"cpu")
     model, tokenizer = get_model(model_name=model_name, device=device)
 
     # Load dataset
