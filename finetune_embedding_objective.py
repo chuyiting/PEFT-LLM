@@ -260,6 +260,9 @@ class MultipleNegativeRankingLoss(nn.Module):
 # Finetuning script
 def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5):
 
+    print(f'Number of training epoch: {epoch}')
+    print(f'Batch size: {batch_size}')
+    print(f'Learning rate: {lr}')
     # Prepare data
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
@@ -291,6 +294,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5):
                     negative_hidden_states.append(outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
             else:
                 outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
+                print(outputs.hidden_states.shape)
                 prompt_hidden_state = outputs.hidden_states[-1][:, -1, :]  # Final hidden state of prompt
 
                 outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask, output_hidden_states=True)
@@ -319,8 +323,10 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5):
 def get_loss_function(loss_type):
     """Returns the appropriate loss function based on the `loss_type`."""
     if loss_type == "multiple_negative_ranking":
+        print('use multiple negative ranking loss')
         return MultipleNegativeRankingLoss()
     elif loss_type == "triplet":
+        print('use triplet loss')
         return TripletLoss()
     else:
         raise ValueError(f"Unsupported loss_type: {loss_type}")
