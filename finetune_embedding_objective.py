@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader, Dataset
 
 from transformers import AutoModel, AutoTokenizer
 from peft import LoraConfig,get_peft_model
+from accelerate import Accelerator
 
 from tqdm import tqdm
 from collections import defaultdict
@@ -25,6 +26,7 @@ lr=5e-5
 
 # Define model
 def get_model(model_name, device):
+    torch.cuda.empty_cache()
     model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
     # Apply LoRA configuration
@@ -36,7 +38,13 @@ def get_model(model_name, device):
                       "gate_proj", "up_proj", "down_proj"],
         bias = 'none'
     )
+    
     model = get_peft_model(model, lora_config)
+
+    accelerator = Accelerator(fp16=True)
+    model, tokenizer = accelerator.prepare(model, tokenizer)
+    model.gradient_checkpointing_enable()
+    
     model.to(device)
 
     return model, tokenizer
@@ -188,8 +196,8 @@ def train(model, dataset, device="cuda", epochs=3, batch_size=4, lr=5e-5):
     loss_fn = MultipleNegativeRankingLoss()
 
     model.train()
-    for param in model.base_model.parameters():
-        print(param.requires_grad) 
+    for name, param in model.base_model.named_parameters():
+        print(f"Parameter: {name}, Requires Grad: {param.requires_grad}") 
     for epoch in range(epochs):
         total_loss = 0
         for batch in tqdm(dataloader):
