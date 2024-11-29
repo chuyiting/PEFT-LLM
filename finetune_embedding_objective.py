@@ -294,6 +294,8 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
     for epoch in range(epochs):
         total_loss = 0
         for batch in tqdm(dataloader):
+            optimizer.zero_grad()
+            
             if max_steps > 0 and num_steps >= max_steps:
                 break
             prompt_input_ids = batch['prompt_input_ids'].to(device)
@@ -332,9 +334,6 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
             loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
             loss.backward()
             #scaler.scale(loss).backward()
-
-            # Backward pass and optimization
-            optimizer.zero_grad()
 
             # scaler.step(optimizer)
             # scaler.update() 
