@@ -269,7 +269,7 @@ class MultipleNegativeRankingLoss(nn.Module):
         return loss.mean()
 
 # Finetuning script
-def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01, verbose=False):
+def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01, verbose=False, call_back=None):
 
     print(f'Number of training epoch: {epochs}')
     print(f'Batch size: {batch_size}')
@@ -291,6 +291,9 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
     num_steps = 0
     for epoch in range(epochs):
         total_loss = 0
+        if call_back is not None:
+            print(f'saving model at epoch {epoch}')
+            call_back(model, tokenizer)
         for batch in tqdm(dataloader):
             if num_steps >= max_steps:
                 break
@@ -357,7 +360,18 @@ def get_loss_function(loss_type):
         return TripletLoss()
     else:
         raise ValueError(f"Unsupported loss_type: {loss_type}")
-    
+   
+def save_model(model, tokenizer):
+    token = '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'
+    hugging_face_repo = args.hugging_face_repo
+    if not use_unsloth:
+        login(token=token)
+        model.push_to_hub(hugging_face_repo)
+        tokenizer.push_to_hub(hugging_face_repo)
+    else:
+        model.push_to_hub(hugging_face_repo, token=token)
+        tokenizer.push_to_hub(hugging_face_repo, token=token)
+
 # Example usage
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fine-tuning script with customizable arguments")
@@ -389,15 +403,5 @@ if __name__ == "__main__":
     dataset = MisconceptionDataset(tokenizer, k=args.k, data_path=data_path, cluster_path=cluster_path, misconception_map_path=misconception_map_path)
 
     # Train model
-    train(model, dataset, device=device, loss_fn=get_loss_function(args.loss_type), epochs=args.epoch, batch_size= args.batch_size, lr=args.lr, max_steps=args.max_steps, weight_decay=args.weight_decay)
-
-    # Save model  
-    token = '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'
-    hugging_face_repo = args.hugging_face_repo
-    if not use_unsloth:
-        login(token=token)
-        model.push_to_hub(hugging_face_repo)
-        tokenizer.push_to_hub(hugging_face_repo)
-    else:
-        model.push_to_hub(hugging_face_repo, token=token)
-        tokenizer.push_to_hub(hugging_face_repo, token=token)
+    train(model, dataset, device=device, loss_fn=get_loss_function(args.loss_type), epochs=args.epoch, batch_size= args.batch_size, lr=args.lr, max_steps=args.max_steps, weight_decay=args.weight_decay, call_back=save_model)
+    

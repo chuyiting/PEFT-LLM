@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir --upgrade \
 
 # Install the required Python packages
 RUN pip install --no-cache-dir --upgrade \
+    unsloth \
     transformers \
     bitsandbytes \
     peft \
