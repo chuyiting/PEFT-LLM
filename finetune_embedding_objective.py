@@ -19,7 +19,7 @@ from huggingface_hub import login
 # unsloth
 use_unsloth=True
 max_seq_length = 512 # Choose any! We auto support RoPE Scaling internally!
-dtype = None # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
+dtype = torch.float16 # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
 load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
 
 
@@ -66,6 +66,7 @@ def get_model(model_name, device, use_lora=True):
                     use_rslora = False,  # We support rank stabilized LoRA
                     loftq_config = None, # And LoftQ
                 )
+            model = model.to(dtype)
         return model, tokenizer
 
  
