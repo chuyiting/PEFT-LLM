@@ -334,7 +334,8 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                 
 
             #loss.backward()
-            scaler.scale(loss).backward()
+            with torch.set_default_dtype(torch.float32):
+                scaler.scale(loss).backward()
 
             # Backward pass and optimization
             optimizer.zero_grad()
