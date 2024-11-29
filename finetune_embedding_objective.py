@@ -243,7 +243,6 @@ class MultipleNegativeRankingLoss(nn.Module):
         if len(negative_embeds_list) > 0:
             # Stack negatives along a new dimension (batch_size, num_negatives, embed_dim)
             negative_embeds = torch.stack(negative_embeds_list, dim=1)
-            print(negative_embeds.shape)
             negative_embeds = F.normalize(negative_embeds, p=2, dim=-1)
 
             # Compute cosine similarity between anchor and negatives
