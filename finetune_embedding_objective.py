@@ -330,8 +330,12 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
             optimizer.zero_grad()
             loss.backward()
 
-            # optimizer.step()
-            # scheduler.step()
+            for name, param in model.named_parameters():
+                if param.grad is not None and torch.any(torch.isnan(param.grad)):
+                    print(f"NaN detected in gradient of {name}")
+                    break
+            optimizer.step()
+            scheduler.step()
 
             num_steps += 1
             print(f"Loss: {loss.item()}")
