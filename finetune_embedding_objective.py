@@ -20,7 +20,7 @@ from unsloth.chat_templates import get_chat_template
 from huggingface_hub import login
 
 # unsloth
-use_unsloth=True
+use_unsloth=False
 max_seq_length = 512 # Choose any! We auto support RoPE Scaling internally!
 dtype = None # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
 load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
@@ -56,7 +56,7 @@ def get_model(model_name, device, use_lora=True):
         if use_lora:
             model = FastLanguageModel.get_peft_model(
                     model,
-                    r = 16, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
+                    r = 8, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
                     target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
                                     "gate_proj", "up_proj", "down_proj",],
                     lora_alpha = 16,
