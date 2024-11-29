@@ -50,7 +50,7 @@ def prepare_cluster_dict(cluster_path):
 
 def prepare_misconception_map(misconception_map_path):
     df = pd.read_csv(misconception_map_path, header=0)
-    return dict(zip(df['misconceptionId'], df['misconceptionName']))
+    return dict(zip(df['MisconceptionId'], df['MisconceptionName']))
 
 # Define dataset
 class MisconceptionDataset(Dataset):
