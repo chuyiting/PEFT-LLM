@@ -56,6 +56,7 @@ def prepare_misconception_map(misconception_map_path):
 class MisconceptionDataset(Dataset):
     def __init__(self, tokenizer, k, data_path, cluster_path, misconception_map_path):
         self.tokenizer = tokenizer
+        self.k = k
 
         self.cluster_dict = prepare_cluster_dict(cluster_path)
         self.misconception_map = prepare_misconception_map(misconception_map_path)
