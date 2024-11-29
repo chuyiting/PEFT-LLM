@@ -77,18 +77,26 @@ class MisconceptionDataset(Dataset):
         self.misconception_name = data['MisconceptionName']
 
     def get_negative_examples(self, misconception_id, k, cluster_dict):
+        related_misconceptions = []
+    
+        # First, gather all misconceptions related to the misconception_id from the cluster_dict
         for _, misconceptions in cluster_dict.items():
             if misconception_id in misconceptions:
                 # Remove the given misconception_id from the list
                 related_misconceptions = [id for id in misconceptions if id != misconception_id]
-                
-                # If k is smaller than the size of the cluster, return k random misconceptions
-                if len(related_misconceptions) >= k:
-                    return random.sample(related_misconceptions, k)
-                else:
-                    # If there are fewer than k misconceptions, return all of them
-                    return related_misconceptions
-        return []
+                break
+
+        if len(related_misconceptions) >= k:
+            return random.sample(related_misconceptions, k)
+
+         # If we have fewer than k misconceptions, need to add more from other clusters
+         
+        num_misconception = len(self.misconception_map)
+        possible_misconceptions = [i for i in range(num_misconception) if i != misconception_id]
+        additional_samples = random.sample(possible_misconceptions, k - len(related_misconceptions))
+        related_misconceptions += additional_samples
+        return related_misconceptions
+
     
     def format_prompt(self, question_text, construct_name, subject_name, correct_answer_text, wrong_answer_text):
 
