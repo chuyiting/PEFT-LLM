@@ -14,7 +14,7 @@ import random
 from huggingface_hub import login
 
 
-model_name = 'Qwen/Qwen2.5-7B-Instruct-AWQ'
+model_name = 'Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4'
 data_path = 'data/full_finetune_data.csv'
 cluster_path= 'data/misconception_cluster.csv'
 misconception_map_path = 'data/misconception_mapping.csv'
@@ -240,8 +240,8 @@ def train(model, dataset, device, epochs=3, batch_size=4, lr=5e-5):
 
 # Example usage
 if __name__ == "__main__":
-    # Load model and tokenizer "cuda" if torch.cuda.is_available() else
-    device = torch.device("cpu")
+    # Load model and tokenizer 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model, tokenizer = get_model(model_name=model_name, device=device)
 
     # Load dataset
