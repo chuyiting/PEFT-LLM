@@ -372,11 +372,13 @@ if __name__ == "__main__":
                         help="number of negative examplles")
     parser.add_argument('--max_steps', type=int, default=1000, help="max number of steps for learning rate scheduler")
     parser.add_argument('--weight_decay', type=float, default=0.01, help="Adam weight decay")
+    parser.add_argument('--model_name', type=str)
     parser.add_argument('--use_unsloth', action='store_true')
 
 
     args = parser.parse_args()
     use_unsloth = args.use_unsloth
+    model_name = args.model_name
 
     # Load model and tokenizer 
     device = torch.device("cuda" if torch.cuda.is_available() else"cpu")
