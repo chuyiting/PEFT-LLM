@@ -331,11 +331,11 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                         outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask, output_hidden_states=True)
                         negative_hidden_states.append(outputs_negative.hidden_states[-1][:, -1, :])  # Final hidden state of the last token of negative misconceptions
                     loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
-                
-
-            #loss.backward()
-            with torch.set_default_dtype(torch.float32):
-                scaler.scale(loss).backward()
+            
+            torch.set_default_dtype(torch.float32)
+            loss.backward()
+            torch.set_default_dtype(torch.float16)
+            #scaler.scale(loss).backward()
 
             # Backward pass and optimization
             optimizer.zero_grad()
