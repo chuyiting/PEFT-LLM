@@ -19,18 +19,18 @@ from huggingface_hub import login
 # unsloth
 use_unsloth=True
 max_seq_length = 512 # Choose any! We auto support RoPE Scaling internally!
-dtype = torch.float16 # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
-load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
+dtype = torch.float32 # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
+load_in_4bit = False # Use 4bit quantization to reduce memory usage. Can be False.
 
 
 model_name = 'unsloth/Qwen2.5-Math-7B'
 data_path = 'data/full_finetune_data.csv'
 cluster_path= 'data/misconception_cluster.csv'
 misconception_map_path = 'data/misconception_mapping.csv'
-max_length = 256
+max_length = 128
 epochs=4
 batch_size=4
-lr=5e-5
+lr=1e-5
 
 # Define model
 def get_model(model_name, device, use_lora=True):
