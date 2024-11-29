@@ -334,7 +334,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
             loss.backward()
 
             for param in model.parameters():
-                if torch.isnan(param.grad).any():
+                if param.grad is not None and torch.isnan(param.grad).any():
                     print(f"NaN detected in gradients of {param}")
             optimizer.step()
             scheduler.step()
