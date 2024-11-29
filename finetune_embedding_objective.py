@@ -37,6 +37,7 @@ max_length = 256
 def get_model(model_name, device, use_lora=True):
     
     torch.cuda.empty_cache()
+    print(f'use model: {model_name}')
 
     if use_unsloth:
         model, tokenizer = FastLanguageModel.from_pretrained(
