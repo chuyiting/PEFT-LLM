@@ -4,7 +4,6 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
-from torch.cuda.amp import GradScaler, autocast
 
 from transformers import AutoModel, AutoTokenizer
 from peft import LoraConfig,get_peft_model
@@ -23,7 +22,7 @@ from huggingface_hub import login
 use_unsloth=True
 max_seq_length = 512 # Choose any! We auto support RoPE Scaling internally!
 dtype = None # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
-load_in_4bit = False # Use 4bit quantization to reduce memory usage. Can be False.
+load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
 
 
 model_name = 'unsloth/Qwen2.5-Math-7B'
@@ -279,8 +278,8 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = LambdaLR(optimizer, lr_lambda=lambda step: max(0.0, 1.0 - step / float(max_steps)))
-    scaler = GradScaler()
 
+    model_float32 = model.float()
     model.train()
     if verbose:
         for name, param in model.base_model.named_parameters():
@@ -301,41 +300,47 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
 
             # Forward pass for prompt, positive, and negative examples
             if not use_unsloth:
-                with autocast():
-                    outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
-                    prompt_hidden_state = outputs.last_hidden_state[:, -1, :]  # Final hidden state of prompt
+                outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
+                prompt_hidden_state = outputs.last_hidden_state[:, -1, :]  # Final hidden state of prompt
 
-                    outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask)
-                    positive_hidden_state = outputs_positive.last_hidden_state[:, -1, :]  # Final hidden state of positive
+                outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask)
+                positive_hidden_state = outputs_positive.last_hidden_state[:, -1, :]  # Final hidden state of positive
 
-                    negative_hidden_states = []
-                    for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
-                        outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
-                        negative_hidden_states.append(outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
+                negative_hidden_states = []
+                for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
+                    outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
+                    negative_hidden_states.append(outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
             else:
-                with autocast():
-                    outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
-                    prompt_hidden_state = outputs.hidden_states[-1][:, -1, :]  # Final hidden state of prompt
+                outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
+                prompt_hidden_state = outputs.hidden_states[-1][:, -1, :]  # Final hidden state of prompt
 
-                    outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask, output_hidden_states=True)
-                    positive_hidden_state = outputs_positive.hidden_states[-1][:, -1, :]  # Final hidden state of positive
+                outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask, output_hidden_states=True)
+                positive_hidden_state = outputs_positive.hidden_states[-1][:, -1, :]  # Final hidden state of positive
 
-                    negative_hidden_states = []
-                    for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
-                        outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask, output_hidden_states=True)
-                        negative_hidden_states.append(outputs_negative.hidden_states[-1][:, -1, :])  # Final hidden state of negative
+                negative_hidden_states = []
+                for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
+                    outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask, output_hidden_states=True)
+                    negative_hidden_states.append(outputs_negative.hidden_states[-1][:, -1, :])  # Final hidden state of negative
             
 
             # Compute loss
-            with autocast():
-                loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
+            loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
+            loss.backward()
+
+            # Copy gradients to float32 version before optimizer step
+            for param, param_float32 in zip(model.parameters(), model_float32.parameters()):
+                if param.grad is not None:
+                    param_float32.grad = param.grad.float()
 
             # Backward pass and optimization
             optimizer.zero_grad()
-            scaler.scale(loss).backward()
 
             optimizer.step()
             scheduler.step()
+
+            # Copy updated parameters back to the float16 model
+            for param, param_float32 in zip(model.parameters(), model_float32.parameters()):
+                param.data = param_float32.data.half()
 
             num_steps += 1
             print(f"Loss: {loss.item()}")
