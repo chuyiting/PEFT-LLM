@@ -340,7 +340,7 @@ if __name__ == "__main__":
     parser.add_argument('--epoch', type=int, default=4, help="Number of training epochs (default: 4)")
     parser.add_argument('--loss_type', type=str, default='triplet', choices=['multiple_negative_ranking', 'triplet', 'info_nce'], 
                         help="Type of loss function to use (default: triplet)")
-    parser.add_argument('--k', type=int, default=25, choices=['multiple_negative_ranking', 'triplet', 'info_nce'], 
+    parser.add_argument('--k', type=int, default=25, 
                         help="number of negative examplles")
 
 
