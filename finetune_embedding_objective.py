@@ -26,7 +26,7 @@ dtype = None # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for
 load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
 
 
-model_name = 'Qwen/Qwen2.5-Math-7B'
+model_name = 'unsloth/Qwen2.5-Math-7B'
 data_path = 'data/full_finetune_data.csv'
 cluster_path= 'data/misconception_cluster.csv'
 misconception_map_path = 'data/misconception_mapping.csv'
@@ -70,9 +70,6 @@ def get_model(model_name, device, use_lora=True):
                     inference_mode = False,
                 )
             model.to(torch.float16)
-            for name, param in model.named_parameters():
-                if "lora_" in name and param.requires_grad:
-                    param.data = param.data.to(torch.float16)
         return model, tokenizer
 
  
