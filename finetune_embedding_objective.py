@@ -258,7 +258,7 @@ class MultipleNegativeRankingLoss(nn.Module):
         return loss.mean()
 
 # Finetuning script
-def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01):
+def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01, verbose=False):
 
     print(f'Number of training epoch: {epochs}')
     print(f'Batch size: {batch_size}')
@@ -270,8 +270,9 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
 
 
     model.train()
-    for name, param in model.base_model.named_parameters():
-        print(f"Parameter: {name}, Requires Grad: {param.requires_grad}") 
+    if verbose:
+        for name, param in model.base_model.named_parameters():
+            print(f"Parameter: {name}, Requires Grad: {param.requires_grad}") 
     
     num_steps = 0
     for epoch in range(epochs):
