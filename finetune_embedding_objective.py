@@ -71,9 +71,6 @@ def get_model(model_name, device, use_lora=True):
                     inference_mode = False,
                 )
         model.to(torch.float16)
-        for name, param in model.named_parameters():
-            if param.dtype == torch.float32:
-                print(f"Parameter: {name}, dtype: {param.dtype}, shape: {param.shape}")
         return model, tokenizer
 
  
@@ -276,7 +273,7 @@ class MultipleNegativeRankingLoss(nn.Module):
         return loss.mean()
 
 # Finetuning script
-def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01, verbose=True):
+def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01, verbose=False):
 
     print(f'Number of training epoch: {epochs}')
     print(f'Batch size: {batch_size}')
@@ -342,9 +339,9 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
             # Backward pass and optimization
             optimizer.zero_grad()
 
-            scaler.step(optimizer)
-            scaler.update() 
-            # optimizer.step()
+            # scaler.step(optimizer)
+            # scaler.update() 
+            optimizer.step()
             scheduler.step()
 
             num_steps += 1
