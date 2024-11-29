@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader, Dataset
 
 from transformers import AutoModel, AutoTokenizer
 from peft import LoraConfig,get_peft_model
+from torch.optim.lr_scheduler import LambdaLR
 
 from tqdm import tqdm
 from collections import defaultdict
@@ -29,9 +30,7 @@ data_path = 'data/full_finetune_data.csv'
 cluster_path= 'data/misconception_cluster.csv'
 misconception_map_path = 'data/misconception_mapping.csv'
 max_length = 256
-epochs=4
-batch_size=4
-lr=1e-5
+
 
 # Define model
 def get_model(model_name, device, use_lora=True):
@@ -106,6 +105,7 @@ def prepare_misconception_map(misconception_map_path):
 class MisconceptionDataset(Dataset):
     def __init__(self, tokenizer, k, data_path, cluster_path, misconception_map_path):
         self.tokenizer = tokenizer
+        print (f'number of negative examples: {k}')
         self.k = k
 
         self.cluster_dict = prepare_cluster_dict(cluster_path)
@@ -258,21 +258,27 @@ class MultipleNegativeRankingLoss(nn.Module):
         return loss.mean()
 
 # Finetuning script
-def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5):
+def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01):
 
     print(f'Number of training epoch: {epochs}')
     print(f'Batch size: {batch_size}')
     print(f'Learning rate: {lr}')
     # Prepare data
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    scheduler = LambdaLR(optimizer, lr_lambda=lambda step: max(0.0, 1.0 - step / float(max_steps)))
+
 
     model.train()
     for name, param in model.base_model.named_parameters():
         print(f"Parameter: {name}, Requires Grad: {param.requires_grad}") 
+    
+    num_steps = 0
     for epoch in range(epochs):
         total_loss = 0
         for batch in tqdm(dataloader):
+            if num_steps >= max_steps:
+                break
             prompt_input_ids = batch['prompt_input_ids'].to(device)
             prompt_attention_mask = batch['prompt_attention_mask'].to(device)
             positive_input_ids = batch['positive_input_ids'].to(device)
@@ -314,10 +320,15 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5):
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
+            scheduler.step()
 
+            num_steps += 1
             print(f"Loss: {loss.item()}")
-
+        
+        if num_steps >= max_steps:
+            break
         print(f"Epoch {epoch + 1}/{epochs}, Loss: {total_loss / len(dataloader)}")
+        
 
 def get_loss_function(loss_type):
     """Returns the appropriate loss function based on the `loss_type`."""
@@ -338,10 +349,12 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=4, help="Batch size for training (default: 4)")
     parser.add_argument('--lr', type=float, default=1e-5, help="Learning rate (default: 1e-5)")
     parser.add_argument('--epoch', type=int, default=4, help="Number of training epochs (default: 4)")
-    parser.add_argument('--loss_type', type=str, default='triplet', choices=['multiple_negative_ranking', 'triplet', 'info_nce'], 
+    parser.add_argument('--loss_type', type=str, default='multiple_negative_ranking', choices=['multiple_negative_ranking', 'triplet', 'info_nce'], 
                         help="Type of loss function to use (default: triplet)")
     parser.add_argument('--k', type=int, default=25, 
                         help="number of negative examplles")
+    parser.add_argument('--max_steps', type=int, default=1000, help="max number of steps for learning rate scheduler")
+    parser.add_argument('--weight_decay', type=float, default=0.01, help="Adam weight decay")
 
 
     args = parser.parse_args()
@@ -354,7 +367,7 @@ if __name__ == "__main__":
     dataset = MisconceptionDataset(tokenizer, k=args.k, data_path=data_path, cluster_path=cluster_path, misconception_map_path=misconception_map_path)
 
     # Train model
-    train(model, dataset, device=device, loss_fn=get_loss_function(args.loss_type), epochs=args.epoch, batch_size= args.batch_size, lr=args.lr)
+    train(model, dataset, device=device, loss_fn=get_loss_function(args.loss_type), epochs=args.epoch, batch_size= args.batch_size, lr=args.lr, max_steps=args.max_steps, weight_decay=args.weight_decay)
 
     # Save model  
     token = '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'
