@@ -234,9 +234,6 @@ class MultipleNegativeRankingLoss(nn.Module):
         Returns:
             torch.Tensor: Scalar loss value.
         """
-        print(f'anchor: {anchor}')
-        print(f'positive embed: {positive_embeds}')
-        print(f'negative embed: {negative_embeds_list}')
         eps = 1e-7 
         # Normalize embeddings to unit vectors
         anchor = F.normalize(anchor, p=2, dim=-1)
