@@ -69,7 +69,7 @@ def get_model(model_name, device, use_lora=True):
                     loftq_config = None, # And LoftQ
                     inference_mode = False,
                 )
-            #model.to(torch.float32)
+            model.to(torch.float16)
         return model, tokenizer
 
  
@@ -279,7 +279,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
     print(f'Learning rate: {lr}')
     # Prepare data
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay, eps=1e-7)
     optimizer_state = optimizer.state_dict()
     optimizer_state['found_inf_per_device'] = {'cuda': torch.tensor([False])}  # Assuming you're on 'cuda'
 
