@@ -240,8 +240,8 @@ def train(model, dataset, device="cuda", epochs=3, batch_size=4, lr=5e-5):
 
 # Example usage
 if __name__ == "__main__":
-    # Load model and tokenizer
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Load model and tokenizer "cuda" if torch.cuda.is_available() else
+    device = torch.device("cpu")
     model, tokenizer = get_model(model_name=model_name, device=device)
 
     # Load dataset
