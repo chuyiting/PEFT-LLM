@@ -14,6 +14,7 @@ from tqdm import tqdm
 from collections import defaultdict
 import random
 import argparse
+import os
 
 from unsloth import FastLanguageModel, is_bfloat16_supported
 from unsloth.chat_templates import get_chat_template
@@ -27,9 +28,9 @@ load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False
 
 
 model_name = 'unsloth/Qwen2.5-32B-bnb-4bit'
-data_path = 'data/full_finetune_data.csv'
-cluster_path= 'data/misconception_cluster.csv'
-misconception_map_path = 'data/misconception_mapping.csv'
+data_path = os.path.join(os.getcwd(), 'data/full_finetune_data.csv')
+cluster_path= os.path.join(os.getcwd(), 'data/misconception_cluster.csv')
+misconception_map_path = os.path.join(os.getcwd(), 'data/misconception_mapping.csv')
 max_length = 256
 
 
@@ -114,6 +115,7 @@ class MisconceptionDataset(Dataset):
 
         self.cluster_dict = prepare_cluster_dict(cluster_path)
         self.misconception_map = prepare_misconception_map(misconception_map_path)
+        print(f'data path: {data_path}')
         data = pd.read_csv(data_path, header=0)
 
         self.question_text = data['QuestionText'] 
@@ -291,11 +293,8 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
     num_steps = 0
     for epoch in range(epochs):
         total_loss = 0
-        if call_back is not None:
-            print(f'saving model at epoch {epoch}')
-            call_back(model, tokenizer)
         for batch in tqdm(dataloader):
-            if num_steps >= max_steps:
+            if max_steps > 0 and num_steps >= max_steps:
                 break
             prompt_input_ids = batch['prompt_input_ids'].to(device)
             prompt_attention_mask = batch['prompt_attention_mask'].to(device)
@@ -344,8 +343,12 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
 
             num_steps += 1
             print(f"Loss: {loss.item()}")
-        
-        if num_steps >= max_steps:
+
+        if call_back is not None:
+            print(f'saving model at epoch {epoch}')
+            call_back(model, tokenizer)
+
+        if max_steps > 0 and num_steps >= max_steps:
             break
         print(f"Epoch {epoch + 1}/{epochs}, Loss: {total_loss / len(dataloader)}")
         
@@ -384,7 +387,7 @@ if __name__ == "__main__":
                         help="Type of loss function to use (default: triplet)")
     parser.add_argument('--k', type=int, default=25, 
                         help="number of negative examplles")
-    parser.add_argument('--max_steps', type=int, default=1000, help="max number of steps for learning rate scheduler")
+    parser.add_argument('--max_steps', type=int, default=-1, help="max number of steps for learning rate scheduler")
     parser.add_argument('--weight_decay', type=float, default=0.01, help="Adam weight decay")
     parser.add_argument('--model_name', type=str)
     parser.add_argument('--use_unsloth', action='store_true')
