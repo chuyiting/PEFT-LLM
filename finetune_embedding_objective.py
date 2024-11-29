@@ -270,15 +270,15 @@ def train(model, dataset, device, epochs=3, batch_size=4, lr=5e-5):
                     negative_hidden_states.append(outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
             else:
                 outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
-                prompt_hidden_state = outputs.hidden_state[-1][:, -1, :]  # Final hidden state of prompt
+                prompt_hidden_state = outputs.hidden_states[-1][:, -1, :]  # Final hidden state of prompt
 
                 outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask, output_hidden_states=True)
-                positive_hidden_state = outputs_positive.hidden_state[-1][:, -1, :]  # Final hidden state of positive
+                positive_hidden_state = outputs_positive.hidden_states[-1][:, -1, :]  # Final hidden state of positive
 
                 negative_hidden_states = []
                 for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
                     outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask, output_hidden_states=True)
-                    negative_hidden_states.append(outputs_negative.hidden_state[-1][:, -1, :])  # Final hidden state of negative
+                    negative_hidden_states.append(outputs_negative.hidden_states[-1][:, -1, :])  # Final hidden state of negative
             
 
             # Compute loss
