@@ -20,13 +20,13 @@ from unsloth.chat_templates import get_chat_template
 from huggingface_hub import login
 
 # unsloth
-use_unsloth=True
+use_unsloth=False
 max_seq_length = 512 # Choose any! We auto support RoPE Scaling internally!
 dtype = None # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
 load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
 
 
-model_name = 'unsloth/Qwen2.5-Math-7B'
+model_name = 'Qwen/Qwen2-Math-7B'
 data_path = 'data/full_finetune_data.csv'
 cluster_path= 'data/misconception_cluster.csv'
 misconception_map_path = 'data/misconception_mapping.csv'
@@ -68,7 +68,7 @@ def get_model(model_name, device, use_lora=True):
                     loftq_config = None, # And LoftQ
                     inference_mode = False,
                 )
-            model.to(torch.float32)
+            #model.to(torch.float32)
         return model, tokenizer
 
  
@@ -305,18 +305,18 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
 
             # Forward pass for prompt, positive, and negative examples
             if not use_unsloth:
-                with autocast(device_type='cuda'):
-                    outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
-                    prompt_hidden_state = outputs.last_hidden_state[:, -1, :]  # Final hidden state of prompt
+                #with autocast(device_type='cuda'):
+                outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
+                prompt_hidden_state = outputs.last_hidden_state[:, -1, :]  # Final hidden state of prompt
 
-                    outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask)
-                    positive_hidden_state = outputs_positive.last_hidden_state[:, -1, :]  # Final hidden state of positive
+                outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask)
+                positive_hidden_state = outputs_positive.last_hidden_state[:, -1, :]  # Final hidden state of positive
 
-                    negative_hidden_states = []
-                    for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
-                        outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
-                        negative_hidden_states.append(outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
-                    loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
+                negative_hidden_states = []
+                for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
+                    outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
+                    negative_hidden_states.append(outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
+                loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
             else:
                 #with autocast(device_type='cuda'):
                 outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
