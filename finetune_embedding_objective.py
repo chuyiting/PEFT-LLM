@@ -20,7 +20,7 @@ from unsloth.chat_templates import get_chat_template
 from huggingface_hub import login
 
 # unsloth
-use_unsloth=False
+use_unsloth=True
 max_seq_length = 512 # Choose any! We auto support RoPE Scaling internally!
 dtype = None # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
 load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
