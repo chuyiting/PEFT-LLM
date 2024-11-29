@@ -301,7 +301,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
 
             # Forward pass for prompt, positive, and negative examples
             if not use_unsloth:
-                with autocast():
+                with autocast(device_type='cuda'):
                     outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
                     prompt_hidden_state = outputs.last_hidden_state[:, -1, :]  # Final hidden state of prompt
 
@@ -313,7 +313,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                         outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
                         negative_hidden_states.append(outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
             else:
-                with autocast():
+                with autocast(device_type='cuda'):
                     outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
                     prompt_hidden_state = outputs.hidden_states[-1][:, -1, :]  # Final hidden state of prompt
 
@@ -327,7 +327,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                 
 
             # Compute loss
-            with autocast():
+            with autocast(device_type='cuda'):
                 loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
             scaler.scale(loss).backward()
 
