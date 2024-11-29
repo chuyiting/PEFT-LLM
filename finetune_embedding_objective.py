@@ -22,8 +22,8 @@ from huggingface_hub import login
 # unsloth
 use_unsloth=True
 max_seq_length = 512 # Choose any! We auto support RoPE Scaling internally!
-dtype = torch.float16 # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
-load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
+dtype = None # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
+load_in_4bit = False # Use 4bit quantization to reduce memory usage. Can be False.
 
 
 model_name = 'unsloth/Qwen2.5-Math-7B'
@@ -234,7 +234,7 @@ class MultipleNegativeRankingLoss(nn.Module):
         print(f'anchor: {anchor}')
         print(f'positive embed: {positive_embeds}')
         print(f'negative embed: {negative_embeds_list}')
-        eps = 1e-8 
+        eps = 1e-7 
         # Normalize embeddings to unit vectors
         anchor = F.normalize(anchor, p=2, dim=-1)
         positive_embeds = F.normalize(positive_embeds, p=2, dim=-1)
