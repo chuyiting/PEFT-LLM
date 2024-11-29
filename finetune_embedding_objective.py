@@ -40,6 +40,7 @@ def get_model(model_name, device, use_lora=True):
     print(f'use model: {model_name}')
 
     if use_unsloth:
+        print('use unsloth')
         model, tokenizer = FastLanguageModel.from_pretrained(
             model_name = model_name,
             max_seq_length = max_seq_length,
@@ -69,7 +70,10 @@ def get_model(model_name, device, use_lora=True):
                     loftq_config = None, # And LoftQ
                     inference_mode = False,
                 )
-            model.to(torch.float16)
+        model.to(torch.float16)
+        for name, param in model.named_parameters():
+            if param.dtype == torch.float32:
+                print(f"Parameter: {name}, dtype: {param.dtype}, shape: {param.shape}")
         return model, tokenizer
 
  
