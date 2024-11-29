@@ -28,8 +28,8 @@ data_path = 'data/full_finetune_data.csv'
 cluster_path= 'data/misconception_cluster.csv'
 misconception_map_path = 'data/misconception_mapping.csv'
 max_length = 256
-epochs=5
-batch_size=2
+epochs=4
+batch_size=4
 lr=5e-5
 
 # Define model
@@ -288,6 +288,8 @@ def train(model, dataset, device, epochs=3, batch_size=4, lr=5e-5):
             # Backward pass and optimization
             optimizer.zero_grad()
             loss.backward()
+
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
             print(f"Loss: {loss.item()}")
