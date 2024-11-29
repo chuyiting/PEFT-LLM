@@ -293,18 +293,18 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
             if num_steps >= max_steps:
                 break
             prompt_input_ids = batch['prompt_input_ids'].to(device)
-            if torch.isnan(prompt_input_ids).any():
-                print("NaN detected in input data")
             prompt_attention_mask = batch['prompt_attention_mask'].to(device)
+            if torch.isnan(prompt_attention_mask).any():
+                print("NaN detected in input data")
             positive_input_ids = batch['positive_input_ids'].to(device)
-            if torch.isnan(positive_input_ids).any():
-                print("NaN detected in positive input data")
             positive_attention_mask = batch['positive_attention_mask'].to(device)
+            if torch.isnan(positive_attention_mask).any():
+                print("NaN detected in positive input data")
             negative_input_ids = [neg.to(device) for neg in batch['negative_input_ids']]
-            for neg in negative_input_ids:
+            negative_attention_mask = [neg.to(device) for neg in batch['negative_attention_mask']]
+            for neg in negative_attention_mask:
                 if torch.isnan(neg).any():
                     print("NaN detected in negative input data")
-            negative_attention_mask = [neg.to(device) for neg in batch['negative_attention_mask']]
 
             # Forward pass for prompt, positive, and negative examples
             if not use_unsloth:
