@@ -260,7 +260,7 @@ class MultipleNegativeRankingLoss(nn.Module):
 # Finetuning script
 def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5):
 
-    print(f'Number of training epoch: {epoch}')
+    print(f'Number of training epoch: {epochs}')
     print(f'Batch size: {batch_size}')
     print(f'Learning rate: {lr}')
     # Prepare data
