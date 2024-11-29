@@ -70,6 +70,9 @@ def get_model(model_name, device, use_lora=True):
                     inference_mode = False,
                 )
             model.to(torch.float16)
+            for name, param in model.named_parameters():
+                if "lora_" in name and param.requires_grad:
+                    param.data = param.data.to(torch.float16)
         return model, tokenizer
 
  
