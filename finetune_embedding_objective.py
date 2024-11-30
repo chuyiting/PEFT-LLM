@@ -242,8 +242,10 @@ class MultipleNegativeRankingLoss(nn.Module):
         positive_embeds = F.normalize(positive_embeds, p=2, dim=-1)
         if torch.isnan(anchor).any():
             print('there is nan in anchor')
+            print(anchor)
         if torch.isnan(positive_embeds).any():
             print('there is nan in positive embeds')
+            print(positive_embeds)
 
 
         # If there are negatives, stack them into a single tensor
@@ -253,6 +255,7 @@ class MultipleNegativeRankingLoss(nn.Module):
             negative_embeds = F.normalize(negative_embeds, p=2, dim=-1)
             if torch.isnan(negative_embeds).any():
                 print('there is nan in negative embeds')
+                print(negative_embeds)
 
             # Compute cosine similarity between anchor and negatives
             negative_sim = torch.einsum('bd,bnd->bn', anchor, negative_embeds)  # Shape: (batch_size, num_negatives)
