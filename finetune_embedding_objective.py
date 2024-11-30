@@ -291,7 +291,8 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
             print(f"Parameter: {name}, Requires Grad: {param.requires_grad}") 
     
     num_steps = 0
-    for epoch in range(epochs):
+    print('start training')
+    for epoch in tqdm(range(epochs), desc="Epochs"):
         total_loss = 0
         for batch in tqdm(dataloader):
             optimizer.zero_grad()
