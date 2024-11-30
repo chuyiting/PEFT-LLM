@@ -340,12 +340,13 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                         negative_hidden_states.append(outputs_negative.hidden_states[-1][:, -1, :])  # Final hidden state of the last token of negative misconceptions
                 
             loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
-            loss.backward()
+            #loss.backward()
+            scaler.scale(loss).backward()
             for param in model.parameters():
                 if param.grad is not None and torch.isnan(param.grad).any():
                     print(f"NaN gradient detected in {param.grad}")
                     break
-            scaler.scale(loss).backward()
+            
             # Gradient clipping
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
