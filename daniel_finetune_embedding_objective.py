@@ -44,7 +44,7 @@ def get_model(model_name, device, use_lora=True):
         model, tokenizer = FastLanguageModel.from_pretrained(
             model_name=model_name,
             max_seq_length=max_seq_length,
-            dtype=None,
+            dtype=dtype,
             load_in_4bit=load_in_4bit,
         )
 
