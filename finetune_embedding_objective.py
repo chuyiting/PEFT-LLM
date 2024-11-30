@@ -24,10 +24,10 @@ from huggingface_hub import login
 use_unsloth=False
 max_seq_length = 512 # Choose any! We auto support RoPE Scaling internally!
 dtype = torch.float16 # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
-load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
+load_in_4bit = False # Use 4bit quantization to reduce memory usage. Can be False.
 
 
-model_name = 'unsloth/Qwen2.5-32B-bnb-4bit'
+model_name = 'unsloth/Qwen2.5-32B-bnb-4bit' #unsloth/
 data_path = os.path.join(os.getcwd(), 'data/full_finetune_data.csv')
 cluster_path= os.path.join(os.getcwd(), 'data/misconception_cluster.csv')
 misconception_map_path = os.path.join(os.getcwd(), 'data/misconception_mapping.csv')
@@ -286,11 +286,9 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
     # Prepare data
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay, eps=1e-7)
-    optimizer_state = optimizer.state_dict()
-    optimizer_state['found_inf_per_device'] = {'cuda': torch.tensor([False])}  # Assuming you're on 'cuda'
 
     scheduler = LambdaLR(optimizer, lr_lambda=lambda step: max(0.0, 1.0 - step / float(max_steps)))
-    scaler = GradScaler()
+    #scaler = GradScaler()
 
     model.train()
     if verbose:
@@ -327,32 +325,38 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                     outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
                     negative_hidden_states.append(outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
             else:
-                with autocast(device_type='cuda'):
-                    outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
-                    prompt_hidden_state = outputs.hidden_states[-1][:, -1, :]  # Final hidden state of the last token of prompt
+                #with autocast(device_type='cuda'):
+                outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
+                prompt_hidden_state = outputs.hidden_states[-1][:, -1, :]  # Final hidden state of the last token of prompt
 
-                    outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask, output_hidden_states=True)
-                    positive_hidden_state = outputs_positive.hidden_states[-1][:, -1, :]  # Final hidden state of the last token of positive misconception
+                outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask, output_hidden_states=True)
+                positive_hidden_state = outputs_positive.hidden_states[-1][:, -1, :]  # Final hidden state of the last token of positive misconception
 
-                    negative_hidden_states = []
-                    for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
-                        outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask, output_hidden_states=True)
-                        negative_hidden_states.append(outputs_negative.hidden_states[-1][:, -1, :])  # Final hidden state of the last token of negative misconceptions
+                negative_hidden_states = []
+                for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
+                    outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask, output_hidden_states=True)
+                    negative_hidden_states.append(outputs_negative.hidden_states[-1][:, -1, :])  # Final hidden state of the last token of negative misconceptions
                 
             loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
-            #loss.backward()
-            scaler.scale(loss).backward()
+            loss.backward()
+            #scaler.scale(loss).backward()
             for param in model.parameters():
                 if param.grad is not None and torch.isnan(param.grad).any():
-                    print(f"NaN gradient detected in {param.grad}")
+                    print(f"[{num_steps}] NaN gradient detected in {param.grad}")
                     break
             
             # Gradient clipping
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
-            scaler.step(optimizer)
-            scaler.update() 
-            #optimizer.step()
+            for i, param_group in enumerate(optimizer.param_groups):
+                for j, param in enumerate(param_group['params']):
+                    if param in optimizer.state and 'exp_avg_sq' in optimizer.state[param]:
+                        vt = optimizer.state[param]['exp_avg_sq']  # Access v_t (second moment)
+                        print(f"[{num_steps}] Param Group {i}, Param {j}, v_t shape: {vt.shape}")
+                        print(f"v_t values: {vt}")
+            # scaler.step(optimizer)
+            # scaler.update() 
+            optimizer.step()
             scheduler.step()
 
             num_steps += 1
