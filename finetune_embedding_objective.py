@@ -240,12 +240,19 @@ class MultipleNegativeRankingLoss(nn.Module):
         # Normalize embeddings to unit vectors
         anchor = F.normalize(anchor, p=2, dim=-1)
         positive_embeds = F.normalize(positive_embeds, p=2, dim=-1)
+        if torch.isnan(anchor).any():
+            print('there is nan in anchor')
+        if torch.isnan(positive_embeds).any():
+            print('there is nan in positive embeds')
+
 
         # If there are negatives, stack them into a single tensor
         if len(negative_embeds_list) > 0:
             # Stack negatives along a new dimension (batch_size, num_negatives, embed_dim)
             negative_embeds = torch.stack(negative_embeds_list, dim=1)
             negative_embeds = F.normalize(negative_embeds, p=2, dim=-1)
+            if torch.isnan(negative_embeds).any():
+                print('there is nan in negative embeds')
 
             # Compute cosine similarity between anchor and negatives
             negative_sim = torch.einsum('bd,bnd->bn', anchor, negative_embeds)  # Shape: (batch_size, num_negatives)
@@ -291,7 +298,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
             print(f"Parameter: {name}, Requires Grad: {param.requires_grad}") 
     
     num_steps = 0
-    print('start training')
+    print('start training...')
     for epoch in tqdm(range(epochs), desc="Epochs"):
         total_loss = 0
         for batch in tqdm(dataloader):
@@ -334,6 +341,10 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
             
             loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
             loss.backward()
+            for param in model.parameters():
+                if param.grad is not None and torch.isnan(param.grad).any():
+                    print(f"NaN gradient detected in {param}")
+                    break
             #scaler.scale(loss).backward()
 
             # scaler.step(optimizer)
