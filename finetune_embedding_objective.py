@@ -347,10 +347,14 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
             
             # Gradient clipping
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            
+
             # scaler.step(optimizer)
             # scaler.update() 
             optimizer.step()
+
+            for name, param in model.named_parameters():
+                if torch.isnan(param).any():
+                    print(f"{num_steps} NaN detected in parameter: {name}")
             scheduler.step()
 
             num_steps += 1
