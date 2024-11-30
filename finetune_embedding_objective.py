@@ -16,6 +16,8 @@ from collections import defaultdict
 import random
 import argparse
 import os
+import re
+import random
 
 from unsloth import FastLanguageModel, is_bfloat16_supported
 from unsloth.chat_templates import get_chat_template
@@ -147,6 +149,19 @@ class MisconceptionDataset(Dataset):
         additional_samples = random.sample(possible_misconceptions, k - len(related_misconceptions))
         related_misconceptions += additional_samples
         return related_misconceptions
+    
+    def preprocess_text(self, x):
+        x = x.lower()                 
+        x = re.sub("@\w+", '',x)      
+        x = re.sub("http\w+", '',x)   
+        x = re.sub(r"\\\(", " ", x)
+        x = re.sub(r"\\\)", " ", x)
+        x = re.sub(r"[ ]{1,}", " ", x)
+        x = re.sub(r"\.+", ".", x)    
+        x = re.sub(r"\,+", ",", x)
+        x = re.sub(r"\times+", "\\\\times", x) 
+        x = x.strip()              
+        return x
 
     
     def format_prompt(self, question_text, construct_name, subject_name, correct_answer_text, wrong_answer_text):
@@ -162,7 +177,7 @@ Please identify the likely misconception or reasoning error that led the student
     
         message = [
             {"role": "system", "content": "You are a proficient Mathematics teacher. Your goal is to identify the likely misconception or reasoning error that led the student to choose the wrong answer."},
-            {"role": "user", "content": prompt.strip()}
+            {"role": "user", "content": self.preprocess_text(prompt)}
         ]
     
 
@@ -272,7 +287,7 @@ class MultipleNegativeRankingLoss(nn.Module):
         return loss.mean()
 
 # Finetuning script
-def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01, verbose=False, call_back=None):
+def train(model, dataset, device, loss_fn, extend_negatives, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01, verbose=False, call_back=None):
 
     print(f'Number of training epoch: {epochs}')
     print(f'Batch size: {batch_size}')
@@ -328,6 +343,12 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                 for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
                     outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
                     negative_hidden_states.append(outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
+
+                for _ in range(extend_negatives):
+                    embedding1, embedding2 = random.sample(negative_hidden_states, 2)
+                    new_embedding = (embedding1 + embedding2) / 2
+                    negative_hidden_states.append(new_embedding)
+
             else:
                 #with autocast(device_type='cuda'):
                 outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
@@ -341,6 +362,11 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                     outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask, output_hidden_states=True)
                     negative_hidden_states.append(outputs_negative.hidden_states[-1][:, -1, :])  # Final hidden state of the last token of negative misconceptions
                 
+                for _ in range(extend_negatives):
+                    embedding1, embedding2 = random.sample(negative_hidden_states, 2)
+                    new_embedding = (embedding1 + embedding2) / 2
+                    negative_hidden_states.append(new_embedding)
+
             loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
             loss.backward()
             #scaler.scale(loss).backward()
@@ -399,6 +425,7 @@ if __name__ == "__main__":
                         help="Type of loss function to use (default: triplet)")
     parser.add_argument('--k', type=int, default=25, 
                         help="number of negative examplles")
+    parser.add_argument('--extend_negatives', type=int, default=5, help="number of extend negative examplles")
     parser.add_argument('--max_steps', type=int, default=-1, help="max number of steps for learning rate scheduler")
     parser.add_argument('--weight_decay', type=float, default=0.01, help="Adam weight decay")
     parser.add_argument('--model_name', type=str)
@@ -418,5 +445,5 @@ if __name__ == "__main__":
     dataset = MisconceptionDataset(tokenizer, k=args.k, data_path=data_path, cluster_path=cluster_path, misconception_map_path=misconception_map_path)
 
     # Train model
-    train(model, dataset, device=device, loss_fn=get_loss_function(args.loss_type), epochs=args.epoch, batch_size= args.batch_size, lr=args.lr, max_steps=args.max_steps, weight_decay=args.weight_decay, call_back=save_model)
+    train(model, dataset, device=device, loss_fn=get_loss_function(args.loss_type), extend_negatives=args.extend_negatives, epochs=args.epoch, batch_size= args.batch_size, lr=args.lr, max_steps=args.max_steps, weight_decay=args.weight_decay, call_back=save_model)
     
