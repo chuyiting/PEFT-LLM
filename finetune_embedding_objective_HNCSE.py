@@ -120,9 +120,9 @@ class MisconceptionDataset(Dataset):
         self.misconception_map = prepare_misconception_map(misconception_map_path)
         self.misconceptions = pd.read_csv(misconception_map_path, header=0)
         data = pd.read_csv(data_path, header=0)
+        self.model = model
         self.data = self.get_topK_negatives(data)
 
-        self.model = model
         self.device = device
         self.question_text = data['QuestionText'] 
         self.construct_name = data['ConstructName']
