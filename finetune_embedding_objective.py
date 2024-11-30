@@ -25,7 +25,7 @@ from huggingface_hub import login
 use_unsloth=False
 max_seq_length = 512 # Choose any! We auto support RoPE Scaling internally!
 dtype = torch.float16 # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
-load_in_4bit = False # Use 4bit quantization to reduce memory usage. Can be False.
+load_in_4bit = True  # Use 4bit quantization to reduce memory usage. Can be False.
 
 
 model_name = 'unsloth/Qwen2.5-32B-bnb-4bit' #unsloth/
