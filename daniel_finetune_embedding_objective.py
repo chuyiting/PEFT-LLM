@@ -44,7 +44,7 @@ def get_model(model_name, device, use_lora=True):
         model, tokenizer = FastLanguageModel.from_pretrained(
             model_name=model_name,
             max_seq_length=max_seq_length,
-            dtype=dtype,
+            dtype=None,
             load_in_4bit=load_in_4bit,
         )
 
@@ -247,6 +247,10 @@ class MultipleNegativeRankingLoss(nn.Module):
         # Normalize embeddings to unit vectors
         anchor = F.normalize(anchor, p=2, dim=-1)
         positive_embeds = F.normalize(positive_embeds, p=2, dim=-1)
+        print(anchor)
+        print("\n\n")
+        print(positive_embeds)
+        print("\n\n")
 
         # If there are negatives, stack them into a single tensor
         if len(negative_embeds_list) > 0:
