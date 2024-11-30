@@ -179,64 +179,62 @@ class MisconceptionDataset(Dataset):
 
         # anchor
         data = self.apply_anchor_prompt(data)
-        data['prompt_enc'] = data['prompt'].apply(
-            lambda x: self.tokenizer(
-                x,
+        tokenized_data = [
+            self.tokenizer(
+                prompt,
                 padding="max_length",
                 truncation=True,
-                max_length=max_length,
+                max_length=self.max_length,
                 return_tensors="pt"
-            )
-        )
+            ) for prompt in self.data['prompt']
+        ]
+
+        data_input_ids = torch.cat([enc.input_ids.squeeze(0) for enc in tokenized_data]).to(self.device)
+        data_attention_mask = torch.cat([enc.attention_mask.squeeze(0) for enc in tokenized_data]).to(self.device)
+
         with torch.no_grad():
             if not use_unsloth:
-                data['embeddings'] = data['prompt_enc'].apply(
-                    lambda enc: self.model(
-                        input_ids=enc.input_ids.squeeze(0).to(self.device),
-                        attention_mask=enc.attention_mask.squeeze(0).to(self.device)
-                    ).last_hidden_state[:, -1, :].cpu().numpy()
-                )
+                data_embeddings = self.model(
+                    input_ids=data_input_ids,
+                    attention_mask=data_attention_mask
+                ).last_hidden_state[:, -1, :].cpu().numpy()
             else:
-                data['embeddings'] = data['prompt_enc'].apply(
-                    lambda enc: self.model(
-                        input_ids=enc.input_ids.squeeze(0).to(self.device),
-                        attention_mask=enc.attention_mask.squeeze(0).to(self.device),
-                        output_hidden_states=True
-                    ).hidden_state[-1][:, -1, :].cpu().numpy()
-                )
+                data_embeddings = self.model(
+                    input_ids=data_input_ids,
+                    attention_mask=data_attention_mask,
+                    output_hidden_states=True
+                ).hidden_state[-1][:, -1, :].cpu().numpy()
 
+        
         #negatives
         misconceptions = self.misconceptions
-        misconceptions['prompt_enc'] = misconceptions['MisconceptionName'].apply(
-            lambda x: self.tokenizer(
-                x,
+        tokenized_misconceptions = [
+            self.tokenizer(
+                prompt,
                 padding="max_length",
                 truncation=True,
-                max_length=max_length,
+                max_length=self.max_length,
                 return_tensors="pt"
-            )
-        )
+            ) for prompt in misconceptions['MisconceptionName']
+        ]
+
+        misconception_input_ids = torch.cat([enc.input_ids.squeeze(0) for enc in tokenized_misconceptions]).to(self.device)
+        misconception_attention_mask = torch.cat([enc.attention_mask.squeeze(0) for enc in tokenized_misconceptions]).to(self.device)
+
         with torch.no_grad():
             if not use_unsloth:
-                misconceptions['embeddings'] = misconceptions['prompt_enc'].apply(
-                    lambda enc: self.model(
-                        input_ids=enc.input_ids.squeeze(0).to(self.device),
-                        attention_mask=enc.attention_mask.squeeze(0).to(self.device)
-                    ).last_hidden_state[:, -1, :].cpu().numpy()
-                )
+                misconception_embeddings = self.model(
+                    input_ids=misconception_input_ids,
+                    attention_mask=misconception_attention_mask
+                ).last_hidden_state[:, -1, :].cpu().numpy()
             else:
-                misconceptions['embeddings'] = misconceptions['prompt_enc'].apply(
-                    lambda enc: self.model(
-                        input_ids=enc.input_ids.squeeze(0).to(self.device),
-                        attention_mask=enc.attention_mask.squeeze(0).to(self.device),
-                        output_hidden_states=True
-                    ).hidden_state[-1][:, -1, :].cpu().numpy()
-                )
+                misconception_embeddings = self.model(
+                    input_ids=misconception_input_ids,
+                    attention_mask=misconception_attention_mask,
+                    output_hidden_states=True
+                ).hidden_state[-1][:, -1, :].cpu().numpy()
 
         # Calculate similarity
-        data_embeddings = np.vstack(data['embeddings'].tolist())
-        misconception_embeddings = np.vstack(misconceptions['embeddings'].tolist())
-
         similarity_matrix = cosine_similarity(data_embeddings, misconception_embeddings)
         
         top_k_indices = np.argsort(-similarity_matrix, axis=1)[:, :self.k]
