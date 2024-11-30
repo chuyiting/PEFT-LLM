@@ -315,66 +315,67 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
     for epoch in tqdm(range(epochs), desc="Epochs"):
         total_loss = 0
         train_pbar = tqdm(dataloader)
-        for batch in train_pbar:
-            optimizer.zero_grad()
+        with torch.autograd.detect_anomaly():
+            for batch in train_pbar:
+                optimizer.zero_grad()
 
-            if max_steps > 0 and num_steps >= max_steps:
-                break
-            prompt_input_ids = batch['prompt_input_ids'].to(device)
-            prompt_attention_mask = batch['prompt_attention_mask'].to(device)
-            positive_input_ids = batch['positive_input_ids'].to(device)
-            positive_attention_mask = batch['positive_attention_mask'].to(device)
-            negative_input_ids = [neg.to(device) for neg in batch['negative_input_ids']]
-            negative_attention_mask = [neg.to(device) for neg in batch['negative_attention_mask']]
+                if max_steps > 0 and num_steps >= max_steps:
+                    break
+                prompt_input_ids = batch['prompt_input_ids'].to(device)
+                prompt_attention_mask = batch['prompt_attention_mask'].to(device)
+                positive_input_ids = batch['positive_input_ids'].to(device)
+                positive_attention_mask = batch['positive_attention_mask'].to(device)
+                negative_input_ids = [neg.to(device) for neg in batch['negative_input_ids']]
+                negative_attention_mask = [neg.to(device) for neg in batch['negative_attention_mask']]
+                print(f"bang {positive_input_ids}")
+                # Forward pass for prompt, positive, and negative examples
+                if not use_unsloth:
+                    # with autocast(device_type='cuda'):
+                    outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
+                    prompt_hidden_state = outputs.last_hidden_state[:, -1, :]  # Final hidden state of prompt
 
-            # Forward pass for prompt, positive, and negative examples
-            if not use_unsloth:
-                # with autocast(device_type='cuda'):
-                outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
-                prompt_hidden_state = outputs.last_hidden_state[:, -1, :]  # Final hidden state of prompt
+                    outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask)
+                    positive_hidden_state = outputs_positive.last_hidden_state[:, -1, :]  # Final hidden state of positive
 
-                outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask)
-                positive_hidden_state = outputs_positive.last_hidden_state[:, -1, :]  # Final hidden state of positive
+                    negative_hidden_states = []
+                    for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
+                        outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
+                        negative_hidden_states.append(
+                            outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
+                else:
+                    # with autocast(device_type='cuda'):
+                    outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask,
+                                    output_hidden_states=True)
+                    prompt_hidden_state = outputs.hidden_states[-1][:, -1,
+                                          :]  # Final hidden state of the last token of prompt
 
-                negative_hidden_states = []
-                for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
-                    outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
-                    negative_hidden_states.append(
-                        outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
-            else:
-                # with autocast(device_type='cuda'):
-                outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask,
-                                output_hidden_states=True)
-                prompt_hidden_state = outputs.hidden_states[-1][:, -1,
-                                      :]  # Final hidden state of the last token of prompt
-
-                outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask,
-                                         output_hidden_states=True)
-                positive_hidden_state = outputs_positive.hidden_states[-1][:, -1,
-                                        :]  # Final hidden state of the last token of positive misconception
-
-                negative_hidden_states = []
-                for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
-                    outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask,
+                    outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask,
                                              output_hidden_states=True)
-                    negative_hidden_states.append(outputs_negative.hidden_states[-1][:, -1,
-                                                  :])  # Final hidden state of the last token of negative misconceptions
+                    positive_hidden_state = outputs_positive.hidden_states[-1][:, -1,
+                                            :]  # Final hidden state of the last token of positive misconception
 
-            loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
-            loss.backward()
-            # scaler.scale(loss).backward()
+                    negative_hidden_states = []
+                    for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
+                        outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask,
+                                                 output_hidden_states=True)
+                        negative_hidden_states.append(outputs_negative.hidden_states[-1][:, -1,
+                                                      :])  # Final hidden state of the last token of negative misconceptions
 
-            # Gradient clipping
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
+                loss.backward()
+                # scaler.scale(loss).backward()
 
-            # scaler.step(optimizer)
-            # scaler.update()
-            optimizer.step()
-            scheduler.step()
+                # Gradient clipping
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
-            num_steps += 1
-            train_pbar.set_description(f"Epoch {epoch}")
-            train_pbar.set_postfix({"loss": loss.detach().item()})
+                # scaler.step(optimizer)
+                # scaler.update()
+                optimizer.step()
+                scheduler.step()
+
+                num_steps += 1
+                train_pbar.set_description(f"Epoch {epoch}")
+                train_pbar.set_postfix({"loss": loss.detach().item()})
 
         if call_back is not None:
             print(f'saving model at epoch {epoch}')
