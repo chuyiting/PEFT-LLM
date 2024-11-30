@@ -347,13 +347,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
             
             # Gradient clipping
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-
-            for i, param_group in enumerate(optimizer.param_groups):
-                for j, param in enumerate(param_group['params']):
-                    if param in optimizer.state and 'exp_avg_sq' in optimizer.state[param]:
-                        vt = optimizer.state[param]['exp_avg_sq']  # Access v_t (second moment)
-                        print(f"[{num_steps}] Param Group {i}, Param {j}, v_t shape: {vt.shape}")
-                        print(f"v_t values: {vt}")
+            
             # scaler.step(optimizer)
             # scaler.update() 
             optimizer.step()
