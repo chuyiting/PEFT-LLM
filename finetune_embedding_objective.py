@@ -241,22 +241,12 @@ class MultipleNegativeRankingLoss(nn.Module):
         # Normalize embeddings to unit vectors
         anchor = F.normalize(anchor, p=2, dim=-1)
         positive_embeds = F.normalize(positive_embeds, p=2, dim=-1)
-        if torch.isnan(anchor).any():
-            print('there is nan in anchor')
-            print(anchor)
-        if torch.isnan(positive_embeds).any():
-            print('there is nan in positive embeds')
-            print(positive_embeds)
-
 
         # If there are negatives, stack them into a single tensor
         if len(negative_embeds_list) > 0:
             # Stack negatives along a new dimension (batch_size, num_negatives, embed_dim)
             negative_embeds = torch.stack(negative_embeds_list, dim=1)
             negative_embeds = F.normalize(negative_embeds, p=2, dim=-1)
-            if torch.isnan(negative_embeds).any():
-                print('there is nan in negative embeds')
-                print(negative_embeds)
 
             # Compute cosine similarity between anchor and negatives
             negative_sim = torch.einsum('bd,bnd->bn', anchor, negative_embeds)  # Shape: (batch_size, num_negatives)
@@ -354,10 +344,6 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
             loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
             loss.backward()
             #scaler.scale(loss).backward()
-            for param in model.parameters():
-                if param.grad is not None and torch.isnan(param.grad).any():
-                    print(f"[{num_steps}] NaN gradient detected in {param.grad}")
-                    break
             
             # Gradient clipping
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -365,10 +351,6 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
             # scaler.step(optimizer)
             # scaler.update() 
             optimizer.step()
-
-            for name, param in model.named_parameters():
-                if torch.isnan(param).any():
-                    print(f"{num_steps} NaN detected in parameter: {name}")
             scheduler.step()
 
             num_steps += 1
