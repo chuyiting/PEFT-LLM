@@ -9,6 +9,7 @@ from transformers import AutoModel, AutoTokenizer
 from peft import LoraConfig,get_peft_model
 from torch.optim.lr_scheduler import LambdaLR
 from torch.amp import autocast, GradScaler
+import bitsandbytes as bnb
 
 from tqdm import tqdm
 from collections import defaultdict
@@ -294,7 +295,11 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
 
     # Prepare data
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay, eps=1e-7)
+    optimizer = bnb.optim.AdamW8bit(
+        model.parameters(),
+        lr=lr,         # Learning rate
+        weight_decay=weight_decay  # L2 regularization
+    )
 
     scheduler = LambdaLR(optimizer, lr_lambda=lambda step: max(0.0, 1.0 - step / float(max_steps)))
     #scaler = GradScaler()
