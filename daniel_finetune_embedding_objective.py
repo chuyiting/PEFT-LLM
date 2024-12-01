@@ -343,19 +343,19 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                     # anchor
                     outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
                     prompt_last_non_padding_idx = prompt_attention_mask.sum(dim=1) - 1
-                    prompt_hidden_state = outputs.last_hidden_state[:, prompt_last_non_padding_idx, :]
+                    prompt_hidden_state = outputs.last_hidden_state[torch.arange(outputs.last_hidden_state.size(0)), prompt_last_non_padding_idx, :]
 
                     # positive
                     outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask)
                     positive_last_non_padding_idx = positive_attention_mask.sum(dim=1) - 1
-                    positive_hidden_state = outputs_positive.last_hidden_state[:, positive_last_non_padding_idx, :]
+                    positive_hidden_state = outputs_positive.last_hidden_state[torch.arange(outputs_positive.last_hidden_state.size(0)), positive_last_non_padding_idx, :]
 
                     # negative
-                    print(negative_input_ids.shape)
                     outputs_negative = model(input_ids=negative_input_ids, attention_mask=negative_attention_mask)
                     negative_last_non_padding_idx = negative_attention_mask.sum(dim=1) - 1
-                    print(negative_last_non_padding_idx)
-                    negative_hidden_states = outputs_negative.last_hidden_state[:, negative_last_non_padding_idx, :]
+                    negative_hidden_states = outputs_negative.last_hidden_state[torch.arange(outputs_negative.last_hidden_state.size(0)), negative_last_non_padding_idx, :]
+                    print(prompt_hidden_state.shape)
+                    print(positive_hidden_state.shape)
                     print(negative_hidden_states.shape)
 
                 else:
