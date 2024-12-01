@@ -89,7 +89,8 @@ def get_model(model_name, device, use_lora=True):
             target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
                             "gate_proj", "up_proj", "down_proj"],
             #target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
-            bias='none'
+            bias='none',
+            init_lora_weights="pissa"
         )
 
         model = get_peft_model(model, lora_config)
@@ -205,28 +206,6 @@ Please identify the likely misconception or reasoning error that led the student
             'negative_input_ids': torch.stack([neg_enc.input_ids.squeeze(0) for neg_enc in negative_encs]),
             'negative_attention_mask': torch.stack([neg_enc.attention_mask.squeeze(0) for neg_enc in negative_encs])
         }
-
-
-class TripletLoss(nn.Module):
-    def __init__(self, margin=1.0):
-        super().__init__()
-        self.margin = margin
-
-    def forward(self, anchor, positive_embeds, negative_embeds_list):
-        # Compute distances
-        anchor = F.normalize(anchor, p=2, dim=-1)
-        positive_embeds = F.normalize(positive_embeds, p=2, dim=-1)
-        negative_embeds = torch.stack(negative_embeds_list, dim=1)  # (batch_size, num_negatives, embed_dim)
-        negative_embeds = F.normalize(negative_embeds, p=2, dim=-1)
-
-        positive_distance = torch.sum((anchor - positive_embeds) ** 2, dim=-1)  # Shape: (batch_size,)
-        negative_distance = torch.sum((anchor.unsqueeze(1) - negative_embeds) ** 2,
-                                      dim=-1)  # Shape: (batch_size, num_negatives)
-
-        # Compute loss
-        loss = F.relu(
-            self.margin + positive_distance.unsqueeze(1) - negative_distance)  # Shape: (batch_size, num_negatives)
-        return loss.mean()
 
 
 # Multiple Negative Ranking Loss
