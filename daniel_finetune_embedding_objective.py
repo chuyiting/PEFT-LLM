@@ -337,7 +337,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                 prompt_attention_mask = batch['prompt_attention_mask'].to(device)
                 positive_input_ids = batch['positive_input_ids'].to(device)  # (N, L)
                 positive_attention_mask = batch['positive_attention_mask'].to(device)
-                negative_input_ids = batch['negative_input_ids'].to(device)  # (N, L)
+                negative_input_ids = batch['negative_input_ids'].view(-1, batch['negative_input_ids'].size(-1)).to(device)  # (N, K, L) -> (N*K, L)
                 negative_attention_mask = batch['negative_attention_mask'].to(device)
 
                 print(negative_input_ids.shape)
