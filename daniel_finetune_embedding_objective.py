@@ -233,7 +233,7 @@ class MultipleNegativeRankingLoss(nn.Module):
         scores = torch.cat([positive_similarity.unsqueeze(-1), negative_similarity], dim=-1)
         print(scores)
 
-        range_labels = torch.zeros(scores.size(0), device=scores.device)
+        range_labels = torch.zeros(scores.size(0), device=scores.device, dtype=torch.long)
         return self.cross_entropy_loss(scores, range_labels)
 
 
