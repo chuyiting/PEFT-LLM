@@ -253,6 +253,7 @@ class MultipleNegativeRankingLoss(nn.Module):
         positive_similarity = torch.cosine_similarity(anchor, positive_embeds, dim=1, eps=1e-7)
         negative_similarity = torch.cosine_similarity(anchor, negative_embeds, dim=-1, eps=1e-7).permute(1, 0)
         scores = torch.cat([positive_similarity.unsqueeze(-1), negative_similarity], dim=-1)
+        print(scores)
 
         range_labels = torch.arange(0, scores.size(0), device=scores.device)
         return self.cross_entropy_loss(scores, range_labels)
