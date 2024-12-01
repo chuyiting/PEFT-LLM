@@ -21,6 +21,8 @@ from unsloth import FastLanguageModel, is_bfloat16_supported
 from unsloth.chat_templates import get_chat_template
 from huggingface_hub import login
 
+from transformers import BitsAndBytesConfig
+
 # unsloth
 use_unsloth = False
 max_seq_length = 512  # Choose any! We auto support RoPE Scaling internally!
@@ -73,7 +75,8 @@ def get_model(model_name, device, use_lora=True):
         model.to(torch.float16)
         return model, tokenizer
 
-    model = AutoModel.from_pretrained(model_name, trust_remote_code=True, load_in_4bit=True)
+    quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16)
+    model = AutoModel.from_pretrained(model_name, trust_remote_code=True, quantization_config=quantization_config)
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 
     if use_lora:
