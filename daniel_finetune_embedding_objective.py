@@ -247,7 +247,7 @@ class MultipleNegativeRankingLoss(nn.Module):
         """
         eps = 1e-7
         k = int(negative_embeds.size(0) / anchor.size(0))
-        negative_embeds = negative_embeds.view(-1, k, negative_embeds.size(-1))
+        negative_embeds = negative_embeds.view(-1, k, negative_embeds.size(-1)).permute(1, 0, 2)  # (k, N, E)
         positive_similarity = torch.cosine_similarity(anchor, positive_embeds, dim=1, eps=1e-7)
         negative_similarity = torch.cosine_similarity(anchor, negative_embeds, dim=-1, eps=1e-7)
         print(positive_similarity.shape)
