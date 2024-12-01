@@ -89,8 +89,8 @@ def get_model(model_name, device, use_lora=True):
             target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
                             "gate_proj", "up_proj", "down_proj"],
             #target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
-            bias='none',
-            init_lora_weights="pissa"
+            bias='none'#,
+            #init_lora_weights="pissa"
         )
 
         model = get_peft_model(model, lora_config)
