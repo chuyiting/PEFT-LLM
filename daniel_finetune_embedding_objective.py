@@ -245,7 +245,10 @@ class MultipleNegativeRankingLoss(nn.Module):
         """
         eps = 1e-7
         # Normalize embeddings to unit vectors
+        print(anchor)
         anchor = F.normalize(anchor, p=2, dim=-1)
+        print(anchor)
+        print("\n\n")
         print(positive_embeds)
         positive_embeds = F.normalize(positive_embeds, p=2, dim=-1)
         print(positive_embeds)
