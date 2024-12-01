@@ -333,24 +333,36 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                 if not use_unsloth:
                     # with autocast(device_type='cuda'):
                     outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
-                    prompt_hidden_state = outputs.last_hidden_state[:, -1, :]  # Final hidden state of prompt
+                    # prompt_hidden_state = outputs.last_hidden_state[:, -1, :]  # Final hidden state of prompt
 
-                    print(f'attention mask shape: {positive_attention_mask.shape}, attention mask: {positive_attention_mask}')
+                    prompt_last_hidden_state = outputs.last_hidden_state
+                    prompt_last_non_padding_idx = prompt_attention_mask.sum(dim=1) - 1
+                    prompt_hidden_state = prompt_last_hidden_state[torch.arange(prompt_last_hidden_state.size(0)), prompt_last_non_padding_idx, :]
+
+                    print(f'attention mask shape: {positive_attention_mask.shape}, attention mask: {positive_attention_mask}, last index: {prompt_last_non_padding_idx}')
 
                     outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask)
-                    positive_hidden_state = outputs_positive.last_hidden_state[:, -1, :]  # Final hidden state of positive
+                    # positive_hidden_state = outputs_positive.last_hidden_state[:, -1, :]  # Final hidden state of positive
+                    positive_last_hidden_state = outputs_positive.last_hidden_state
+                    positive_last_non_padding_idx = positive_attention_mask.sum(dim=1) - 1
+                    positive_hidden_state = positive_last_hidden_state[torch.arange(positive_last_hidden_state.size(0)), positive_last_non_padding_idx, :]
 
                     negative_hidden_states = []
                     for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
                         outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
-                        negative_hidden_states.append(
-                            outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
+                        neg_hidden_state = outputs_negative.last_hidden_state
+                        neg_last_non_padding_idx = neg_attention_mask.sum(dim=1) - 1
+                        neg_embedding = neg_hidden_state[torch.arange(neg_hidden_state.size(0)), neg_last_non_padding_idx, :]  # Padding 前的最後一個 token
+                        negative_hidden_states.append(neg_embedding)
+                        # negative_hidden_states.append(
+                        #     outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
                 else:
                     # with autocast(device_type='cuda'):
                     outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask,
                                     output_hidden_states=True)
                     prompt_hidden_state = outputs.hidden_states[-1][:, -1,
                                           :]  # Final hidden state of the last token of prompt
+                    
 
                     print(f'attention mask shape: {positive_attention_mask.shape}, attention mask: {positive_attention_mask}')
 
