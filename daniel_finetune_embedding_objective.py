@@ -355,7 +355,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                 num_steps += 1
                 train_pbar.set_description(f"Epoch {epoch}")
                 train_pbar.set_postfix({"loss": loss.detach().item()})
-                print(loss.detach().item())
+                print()
 
         if call_back is not None:
             print(f'saving model at epoch {epoch}')
