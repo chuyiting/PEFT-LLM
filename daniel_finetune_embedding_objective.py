@@ -248,11 +248,20 @@ class MultipleNegativeRankingLoss(nn.Module):
             torch.Tensor: Scalar loss value.
         """
         eps = 1e-7
+        positive_similarity = torch.cosine_similarity(anchor, positive_embeds, eps=1e-7)
+
+        negative_embeds = torch.stack(negative_embeds_list, dim=1)
+        negative_similarity = torch.cosine_similarity(anchor, negative_embeds, dim=-1, eps=1e-7)
+
+        print(positive_similarity.shape, negative_similarity.shape)
+
+
+
+
+
         # Normalize embeddings to unit vectors
         anchor = F.normalize(anchor, p=2, dim=-1)
         positive_embeds = F.normalize(positive_embeds, p=2, dim=-1)
-        print(anchor.shape)
-        print(positive_embeds.size)
 
 
         # If there are negatives, stack them into a single tensor
