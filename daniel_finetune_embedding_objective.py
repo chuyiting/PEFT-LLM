@@ -75,8 +75,9 @@ def get_model(model_name, device, use_lora=True):
         model.to(torch.float16)
         return model, tokenizer
 
-    quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16)
-    model = AutoModel.from_pretrained(model_name, trust_remote_code=True, quantization_config=quantization_config)
+    #quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16)
+    #model = AutoModel.from_pretrained(model_name, trust_remote_code=True, quantization_config=quantization_config)
+    model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 
     if use_lora:
