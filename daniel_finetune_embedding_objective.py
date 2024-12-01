@@ -297,7 +297,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
 
     # Prepare data
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    optimizer = bnb.optim.AdamW32bit(
+    optimizer = bnb.optim.AdamW8bit(
         model.parameters(),
         lr=lr,  # Learning rate
         weight_decay=weight_decay  # L2 regularization
