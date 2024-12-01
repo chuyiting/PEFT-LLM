@@ -367,6 +367,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                                             :]  # Final hidden state of the last token of positive misconception
 
                     negative_hidden_states = []
+                    print(negative_input_ids.shape)
                     for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
                         outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask,
                                                  output_hidden_states=True)
