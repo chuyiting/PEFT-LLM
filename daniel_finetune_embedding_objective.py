@@ -234,30 +234,23 @@ class MultipleNegativeRankingLoss(nn.Module):
         super().__init__()
         self.margin = margin
 
-    def forward(self, anchor, positive_embeds, negative_embeds_list):
+    def forward(self, anchor, positive_embeds, negative_embeds):
         """
         Calculates the Multiple Negative Loss (MNRL) using cosine similarity.
 
         Args:
             anchor (torch.Tensor): Anchor embeddings, shape (batch_size, embed_dim).
             positive_embeds (torch.Tensor): Positive embeddings, shape (batch_size, embed_dim).
-            negative_embeds_list (list[torch.Tensor]): List of tensors,
-                each tensor is (batch_size, embed_dim) for negatives.
-
+            negative_embeds (torch.Tensor): Negative embeddings, shape (batch_size * k, embed_dim)
         Returns:
             torch.Tensor: Scalar loss value.
         """
         eps = 1e-7
         positive_similarity = torch.cosine_similarity(anchor, positive_embeds, eps=1e-7)
-        print(len(negative_embeds_list))
-        negative_embeds = torch.stack(negative_embeds_list, dim=1)
-        negative_similarity = torch.cosine_similarity(anchor, negative_embeds, dim=-1, eps=1e-7)
+        negative_similarity = torch.cosine_similarity(anchor, negative_embeds, eps=1e-7)
 
         print(positive_similarity.shape, negative_similarity.shape)
-
-
-
-
+        exit(0)
 
         # Normalize embeddings to unit vectors
         anchor = F.normalize(anchor, p=2, dim=-1)
@@ -338,10 +331,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                 positive_input_ids = batch['positive_input_ids'].to(device)  # (N, L)
                 positive_attention_mask = batch['positive_attention_mask'].to(device)
                 negative_input_ids = batch['negative_input_ids'].view(-1, batch['negative_input_ids'].size(-1)).to(device)  # (N, K, L) -> (N*K, L)
-                negative_attention_mask = batch['negative_attention_mask'].to(device)
-
-                print(negative_input_ids.shape)
-                print(negative_attention_mask.shape)
+                negative_attention_mask = batch['negative_attention_mask'].view(-1, batch['negative_attention_mask'].size(-1)).to(device)  # (N, K, L) -> (N*K, L)
 
                 # Forward pass for prompt, positive, and negative examples
                 if not use_unsloth:
@@ -356,11 +346,10 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                     positive_hidden_state = outputs_positive.last_hidden_state[:, positive_last_non_padding_idx, :]
 
                     # negative
-                    negative_hidden_states = []
-                    for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
-                        outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
-                        negative_hidden_states.append(
-                            outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
+                    outputs_negative = model(input_ids=negative_input_ids, attention_mask=negative_attention_mask)
+                    negative_last_non_padding_idx = negative_attention_mask.sum(dim=1) - 1
+                    negative_hidden_states = outputs_negative.last_hidden_state[:, negative_last_non_padding_idx, :]
+
                 else:
                     # with autocast(device_type='cuda'):
                     outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask,
