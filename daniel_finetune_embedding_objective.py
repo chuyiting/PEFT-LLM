@@ -87,7 +87,6 @@ def get_model(model_name, device, use_lora=True):
             lora_dropout=0.1,
             target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
                             "gate_proj", "up_proj", "down_proj"],
-            #target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
             bias='none'
         )
 
