@@ -339,7 +339,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                     prompt_last_non_padding_idx = prompt_attention_mask.sum(dim=1) - 1
                     prompt_hidden_state = prompt_last_hidden_state[torch.arange(prompt_last_hidden_state.size(0)), prompt_last_non_padding_idx, :]
 
-                    print(f'attention mask shape: {positive_attention_mask.shape}, attention mask: {positive_attention_mask}, last index: {prompt_last_non_padding_idx}')
+                    # print(f'attention mask shape: {positive_attention_mask.shape}, attention mask: {positive_attention_mask}, last index: {prompt_last_non_padding_idx}')
 
                     outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask)
                     # positive_hidden_state = outputs_positive.last_hidden_state[:, -1, :]  # Final hidden state of positive
