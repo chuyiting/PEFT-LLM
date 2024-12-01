@@ -87,6 +87,7 @@ def get_model(model_name, device, use_lora=True):
             lora_dropout=0.1,
             target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
                             "gate_proj", "up_proj", "down_proj"],
+            #target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
             bias='none'
         )
 
@@ -250,6 +251,8 @@ class MultipleNegativeRankingLoss(nn.Module):
         # Normalize embeddings to unit vectors
         anchor = F.normalize(anchor, p=2, dim=-1)
         positive_embeds = F.normalize(positive_embeds, p=2, dim=-1)
+        print(anchor.shape)
+        print(positive_embeds.size)
 
 
         # If there are negatives, stack them into a single tensor
