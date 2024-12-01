@@ -233,6 +233,7 @@ class MultipleNegativeRankingLoss(nn.Module):
     def __init__(self, margin=1.0):
         super().__init__()
         self.margin = margin
+        self.cross_entropy_loss = nn.CrossEntropyLoss()
 
     def forward(self, anchor, positive_embeds, negative_embeds):
         """
@@ -251,43 +252,9 @@ class MultipleNegativeRankingLoss(nn.Module):
         positive_similarity = torch.cosine_similarity(anchor, positive_embeds, dim=1, eps=1e-7)
         negative_similarity = torch.cosine_similarity(anchor, negative_embeds, dim=-1, eps=1e-7).permute(1, 0)
         scores = torch.cat([positive_similarity.unsqueeze(-1), negative_similarity], dim=-1)
-        print(scores.shape)
-        exit(0)
 
-
-        # Normalize embeddings to unit vectors
-        anchor = F.normalize(anchor, p=2, dim=-1)
-        positive_embeds = F.normalize(positive_embeds, p=2, dim=-1)
-
-
-        # If there are negatives, stack them into a single tensor
-        if len(negative_embeds_list) > 0:
-            # Stack negatives along a new dimension (batch_size, num_negatives, embed_dim)
-            negative_embeds = torch.stack(negative_embeds_list, dim=1)
-            negative_embeds = F.normalize(negative_embeds, p=2, dim=-1)
-
-            # Compute cosine similarity between anchor and negatives
-            negative_sim = torch.einsum('bd,bnd->bn', anchor, negative_embeds)  # Shape: (batch_size, num_negatives)
-
-            # Clamp similarity values before exponentiation
-            negative_sim = torch.clamp(negative_sim, min=-1.0 + eps, max=1.0 - eps)
-            exp_negatives = torch.exp(negative_sim).sum(dim=-1)  # Shape: (batch_size,)
-        else:
-            exp_negatives = torch.zeros(anchor.size(0), device=anchor.device)  # No negatives
-
-        # Compute cosine similarity between anchor and positive
-        positive_sim = torch.sum(anchor * positive_embeds, dim=-1)  # Shape: (batch_size,)
-
-        # Clamp similarity values before exponentiation
-        positive_sim = torch.clamp(positive_sim, min=-1.0 + eps, max=1.0 - eps)
-        exp_positive = torch.exp(positive_sim)  # Shape: (batch_size,)
-
-        # Compute MNRL
-        denominator = exp_positive + exp_negatives + eps
-        loss = -torch.log(exp_positive / denominator)  # Shape: (batch_size,)
-
-        # Return mean loss
-        return loss.mean()
+        range_labels = torch.arange(0, scores.size(0), device=scores.device)
+        return self.cross_entropy_loss(scores, range_labels)
 
 
 # Finetuning script
