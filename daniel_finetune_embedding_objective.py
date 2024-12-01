@@ -246,9 +246,8 @@ class MultipleNegativeRankingLoss(nn.Module):
         eps = 1e-7
         # Normalize embeddings to unit vectors
         anchor = F.normalize(anchor, p=2, dim=-1)
+        print(positive_embeds)
         positive_embeds = F.normalize(positive_embeds, p=2, dim=-1)
-        print(anchor)
-        print("\n\n")
         print(positive_embeds)
         print("\n\n")
 
@@ -344,11 +343,8 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                             outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
                 else:
                     # with autocast(device_type='cuda'):
-                    print(prompt_input_ids.shape)
-                    print(prompt_input_ids)
                     outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask,
                                     output_hidden_states=True)
-                    print(outputs.hidden_states[-1].shape)
                     prompt_hidden_state = outputs.hidden_states[-1][:, -1,
                                           :]  # Final hidden state of the last token of prompt
 
