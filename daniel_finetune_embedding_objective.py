@@ -351,9 +351,11 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                     positive_hidden_state = outputs_positive.last_hidden_state[:, positive_last_non_padding_idx, :]
 
                     # negative
+                    print(negative_input_ids.shape)
                     outputs_negative = model(input_ids=negative_input_ids, attention_mask=negative_attention_mask)
                     negative_last_non_padding_idx = negative_attention_mask.sum(dim=1) - 1
                     negative_hidden_states = outputs_negative.last_hidden_state[:, negative_last_non_padding_idx, :]
+                    print(negative_hidden_states.shape)
 
                 else:
                     # with autocast(device_type='cuda'):
