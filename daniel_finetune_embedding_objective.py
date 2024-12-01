@@ -245,14 +245,9 @@ class MultipleNegativeRankingLoss(nn.Module):
         """
         eps = 1e-7
         # Normalize embeddings to unit vectors
-        print(anchor)
         anchor = F.normalize(anchor, p=2, dim=-1)
-        print(anchor)
-        print("\n\n")
-        print(positive_embeds)
         positive_embeds = F.normalize(positive_embeds, p=2, dim=-1)
-        print(positive_embeds)
-        print("\n\n")
+
 
         # If there are negatives, stack them into a single tensor
         if len(negative_embeds_list) > 0:
@@ -292,6 +287,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
     print(f'Learning rate: {lr}')
 
     for param in model.parameters():
+        print(param.dtype)
         if param.dtype == torch.qint8:  # Check if it's quantized
             print('clamp quantized')
             param.data = param.data.clamp_(-1.0, 1.0)  # Clamp to a smaller range
