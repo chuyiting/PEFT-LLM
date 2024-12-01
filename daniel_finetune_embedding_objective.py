@@ -327,7 +327,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                 positive_attention_mask = batch['positive_attention_mask'].to(device)
                 negative_input_ids = [neg.to(device) for neg in batch['negative_input_ids']]
                 negative_attention_mask = [neg.to(device) for neg in batch['negative_attention_mask']]
-                print(f"bang {positive_input_ids}")
+
                 # Forward pass for prompt, positive, and negative examples
                 if not use_unsloth:
                     # with autocast(device_type='cuda'):
@@ -344,8 +344,10 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                             outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
                 else:
                     # with autocast(device_type='cuda'):
+                    print(prompt_input_ids.shape)
                     outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask,
                                     output_hidden_states=True)
+                    print(outputs.hidden_states.shape)
                     prompt_hidden_state = outputs.hidden_states[-1][:, -1,
                                           :]  # Final hidden state of the last token of prompt
 
