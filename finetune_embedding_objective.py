@@ -34,6 +34,11 @@ cluster_path= os.path.join(os.getcwd(), 'data/misconception_cluster.csv')
 misconception_map_path = os.path.join(os.getcwd(), 'data/misconception_mapping.csv')
 max_length = 256
 
+encoder_name = 'microsoft/deberta-base'
+
+def get_encoder(encoder_name, device, use_lora=False):
+    tokenizer = AutoTokenizer.from_pretrained(encoder_name)
+    
 
 # Define model
 def get_model(model_name, device, use_lora=True):
@@ -76,23 +81,25 @@ def get_model(model_name, device, use_lora=True):
         return model, tokenizer
 
  
-    model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+    model = AutoModel.from_pretrained(model_name, trust_remote_code=True, load_in_4bit=True)
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 
     if use_lora:
         # Apply LoRA configuration
         lora_config = LoraConfig(
-            r=8, 
-            lora_alpha=16, 
-            lora_dropout=0.1, 
+            r=64, 
+            lora_alpha=128, 
+            lora_dropout=0.05, 
             target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
                         "gate_proj", "up_proj", "down_proj"],
-            bias = 'none'
+            bias = 'none',
+            task_type = "CAUSAL_LM"
         )
         
         model = get_peft_model(model, lora_config)
 
     model.to(device)
+
 
     return model, tokenizer
 
@@ -220,9 +227,10 @@ class TripletLoss(nn.Module):
     
 # Multiple Negative Ranking Loss
 class MultipleNegativeRankingLoss(nn.Module):
-    def __init__(self, margin=1.0):
+    def __init__(self, margin=1.0, temperature=0.1):
         super().__init__()
         self.margin = margin
+        self.temperature = temperature
 
     def forward(self, anchor, positive_embeds, negative_embeds_list):
         """
@@ -249,19 +257,19 @@ class MultipleNegativeRankingLoss(nn.Module):
             negative_embeds = F.normalize(negative_embeds, p=2, dim=-1)
 
             # Compute cosine similarity between anchor and negatives
-            negative_sim = torch.einsum('bd,bnd->bn', anchor, negative_embeds)  # Shape: (batch_size, num_negatives)
+            negative_sim = torch.einsum('bd,bnd->bn', anchor, negative_embeds) / self.temperature  # Shape: (batch_size, num_negatives)
             
             # Clamp similarity values before exponentiation
-            negative_sim = torch.clamp(negative_sim, min=-1.0 + eps, max=1.0 - eps)
+           #negative_sim = torch.clamp(negative_sim, min=-1.0 + eps, max=1.0 - eps)
             exp_negatives = torch.exp(negative_sim).sum(dim=-1)  # Shape: (batch_size,)
         else:
             exp_negatives = torch.zeros(anchor.size(0), device=anchor.device)  # No negatives
 
         # Compute cosine similarity between anchor and positive
-        positive_sim = torch.sum(anchor * positive_embeds, dim=-1)  # Shape: (batch_size,)
+        positive_sim = torch.sum(anchor * positive_embeds, dim=-1) / self.temperature  # Shape: (batch_size,)
 
         # Clamp similarity values before exponentiation
-        positive_sim = torch.clamp(positive_sim, min=-1.0 + eps, max=1.0 - eps)
+        #positive_sim = torch.clamp(positive_sim, min=-1.0 + eps, max=1.0 - eps)
         exp_positive = torch.exp(positive_sim)  # Shape: (batch_size,)
 
         # Compute MNRL
