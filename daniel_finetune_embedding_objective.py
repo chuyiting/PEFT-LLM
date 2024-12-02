@@ -295,18 +295,16 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
                 positive = batch['positive']
                 negative = batch['negative']
 
-                prompt_enc = tokenizer(prompt, padding="longest", truncation=True, max_length=max_length,
+                prompt_enc = tokenizer(prompt, padding="longest", truncation=True,
                                            return_tensors="pt")
 
-                positive_enc = tokenizer(positive, padding="longest", truncation=True, max_length=max_length,
+                positive_enc = tokenizer(positive, padding="longest", truncation=True,
                                              return_tensors="pt")
-                negative_encs = torch.stack([
-                   tokenizer(neg, padding="longest", truncation=True, max_length=max_length, return_tensors="pt") for
-                   neg in negative])
+                negative_enc = tokenizer(negative, padding="longest", truncation=True, return_tensors="pt")
 
                 print(prompt_enc.shape)
                 print(positive_enc.shape)
-                print(negative_encs.shape)
+                print(negative_enc.shape)
 
 
 
