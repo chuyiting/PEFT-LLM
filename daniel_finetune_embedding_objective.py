@@ -37,7 +37,7 @@ max_length = 256
 
 
 # Define model
-def get_model(model_name, device, use_lora=True):
+def get_model(model_name, device, use_lora=False):
     torch.cuda.empty_cache()
     print(f'use model: {model_name}')
 
@@ -184,27 +184,25 @@ Please identify the likely misconception or reasoning error that led the student
         wrong = self.wrong_answer_text[idx]
 
         prompt = self.format_prompt(question, construct, subject, correct, wrong)
-        prompt_enc = self.tokenizer(prompt, padding="max_length", truncation=True, max_length=max_length,
-                                    return_tensors="pt")
-
         positive = self.misconception_name[idx]
-        positive_enc = self.tokenizer(positive, padding="max_length", truncation=True, max_length=max_length,
-                                      return_tensors="pt")
-
         negative_ids = self.get_negative_examples(self.misconception_id[idx], self.k, self.cluster_dict)
         negative = list(map(lambda x: self.misconception_map.get(x, None), negative_ids))
-        negative_encs = [
-            self.tokenizer(neg, padding="max_length", truncation=True, max_length=max_length, return_tensors="pt") for
-            neg in negative]
+
+        #prompt_enc = self.tokenizer(prompt, padding="max_length", truncation=True, max_length=max_length,
+        #                            return_tensors="pt")
+
+
+        #positive_enc = self.tokenizer(positive, padding="max_length", truncation=True, max_length=max_length,
+        #                              return_tensors="pt")
+        #negative_encs = [
+        #    self.tokenizer(neg, padding="max_length", truncation=True, max_length=max_length, return_tensors="pt") for
+        #    neg in negative]
 
         # Return the tokenized inputs and attention masks
         return {
-            'prompt_input_ids': prompt_enc.input_ids.squeeze(0),
-            'prompt_attention_mask': prompt_enc.attention_mask.squeeze(0),
-            'positive_input_ids': positive_enc.input_ids.squeeze(0),
-            'positive_attention_mask': positive_enc.attention_mask.squeeze(0),
-            'negative_input_ids': torch.stack([neg_enc.input_ids.squeeze(0) for neg_enc in negative_encs]),
-            'negative_attention_mask': torch.stack([neg_enc.attention_mask.squeeze(0) for neg_enc in negative_encs])
+            "prompt": prompt,
+            "positive": positive,
+            "negative": negative
         }
 
 
@@ -238,7 +236,7 @@ class MultipleNegativeRankingLoss(nn.Module):
 
 
 # Finetuning script
-def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01,
+def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01,
           verbose=False, call_back=None):
     print(f'Number of training epoch: {epochs}')
     print(f'Batch size: {batch_size}')
@@ -273,6 +271,22 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
         with torch.autograd.detect_anomaly():
             for batch in train_pbar:
                 optimizer.zero_grad()
+
+                prompt = batch['prompt']
+                positive = batch['positive']
+                negative = batch['negative']
+                print(negative)
+
+                prompt_enc = tokenizer(prompt, padding="longest", truncation=True, max_length=max_length,
+                                           return_tensors="pt")
+
+                positive_enc = tokenizer(positive, padding="longest", truncation=True, max_length=max_length,
+                                             return_tensors="pt")
+                negative_encs = torch.stack([
+                   tokenizer(neg, padding="longest", truncation=True, max_length=max_length, return_tensors="pt") for
+                   neg in negative])
+
+
 
                 if max_steps > 0 and num_steps >= max_steps:
                     break
@@ -402,7 +416,7 @@ if __name__ == "__main__":
                                    misconception_map_path=misconception_map_path)
 
     # Train model
-    train(model, dataset, device=device, loss_fn=get_loss_function(args.loss_type), epochs=args.epoch,
+    train(model, tokenizer, dataset, device=device, loss_fn=get_loss_function(args.loss_type), epochs=args.epoch,
           batch_size=args.batch_size, lr=args.lr, max_steps=args.max_steps, weight_decay=args.weight_decay,
           call_back=save_model)
 
