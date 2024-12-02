@@ -294,7 +294,7 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
                 prompt = batch['prompt']
                 positive = batch['positive']
                 negative = batch['negative']
-                print(negative)
+
                 prompt_enc = tokenizer(prompt, padding="longest", truncation=True,
                                            return_tensors="pt")
 
@@ -302,26 +302,16 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
                                              return_tensors="pt")
                 negative_enc = tokenizer(negative, padding="longest", truncation=True, return_tensors="pt")
 
-                prompt_input_ids = prompt_enc.input_ids
-                prompt_attention_mask = prompt_enc.attention_mask
-                positive_input_ids = positive_enc.input_ids
-                positive_attention_mask = positive_enc.attention_mask
-                negative_input_ids = negative_enc.input_ids
-                negative_attention_mask = negative_enc.attention_mask
-
-                print(prompt_input_ids.shape)
-                print(negative_input_ids.shape)
-                print(negative_attention_mask.shape)
+                prompt_input_ids = prompt_enc.input_ids.to(device)
+                prompt_attention_mask = prompt_enc.attention_mask.to(device)
+                positive_input_ids = positive_enc.input_ids.to(device)
+                positive_attention_mask = positive_enc.attention_mask.to(device)
+                negative_input_ids = negative_enc.input_ids.to(device)
+                negative_attention_mask = negative_enc.attention_mask.to(device)
 
 
                 if max_steps > 0 and num_steps >= max_steps:
                     break
-                prompt_input_ids = batch['prompt_input_ids'].to(device)  # (N, L)
-                prompt_attention_mask = batch['prompt_attention_mask'].to(device)
-                positive_input_ids = batch['positive_input_ids'].to(device)  # (N, L)
-                positive_attention_mask = batch['positive_attention_mask'].to(device)
-                negative_input_ids = batch['negative_input_ids'].view(-1, batch['negative_input_ids'].size(-1)).to(device)  # (N, K, L) -> (N*K, L)
-                negative_attention_mask = batch['negative_attention_mask'].view(-1, batch['negative_attention_mask'].size(-1)).to(device)  # (N, K, L) -> (N*K, L)
 
                 # Forward pass for prompt, positive, and negative examples
                 if not use_unsloth:
