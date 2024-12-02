@@ -299,15 +299,15 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
                 prompt_enc = tokenizer(prompt, padding="longest",
                                        truncation=True,
                                        return_tensors="pt",
-                                       padding_side="left")
+                                       padding_side="left").to(device)
                 positive_enc = tokenizer(positive, padding="longest",
                                          truncation=True,
                                          return_tensors="pt",
-                                         padding_side="left")
+                                         padding_side="left").to(device)
                 negative_enc = tokenizer(negative, padding="longest",
                                          truncation=True,
                                          return_tensors="pt",
-                                         padding_side="left")
+                                         padding_side="left").to(device)
 
                 if max_steps > 0 and num_steps >= max_steps:
                     break
