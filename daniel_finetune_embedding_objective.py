@@ -296,23 +296,18 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
                 positive = batch['positive']
                 negative = batch['negative']
 
-                prompt_enc = tokenizer(prompt, padding="longest", truncation=True,
-                                           return_tensors="pt")
-
-                positive_enc = tokenizer(positive, padding="longest", truncation=True,
-                                             return_tensors="pt")
-                negative_enc = tokenizer(negative, padding="longest", truncation=True, return_tensors="pt")
-
-                # prompt_input_ids = prompt_enc.input_ids.to(device)
-                # prompt_attention_mask = prompt_enc.attention_mask.to(device)
-                # positive_input_ids = positive_enc.input_ids.to(device)
-                # positive_attention_mask = positive_enc.attention_mask.to(device)
-                # negative_input_ids = negative_enc.input_ids.to(device)
-                # negative_attention_mask = negative_enc.attention_mask.to(device)
-
-                prompt_input_ids = prompt_enc.input_ids.to(device)
-                positive_input_ids = positive_enc.input_ids.to(device)
-                negative_input_ids = negative_enc.input_ids.to(device)
+                prompt_enc = tokenizer(prompt, padding="longest",
+                                       truncation=True,
+                                       return_tensors="pt",
+                                       padding_side="left")
+                positive_enc = tokenizer(positive, padding="longest",
+                                         truncation=True,
+                                         return_tensors="pt",
+                                         padding_side="left")
+                negative_enc = tokenizer(negative, padding="longest",
+                                         truncation=True,
+                                         return_tensors="pt",
+                                         padding_side="left")
 
                 if max_steps > 0 and num_steps >= max_steps:
                     break
@@ -321,7 +316,7 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
                 if not use_unsloth:
                     gen_config = transformers.GenerationConfig(max_length=512)
                     # anchor
-                    outputs = model.generate(inputs=prompt_input_ids, generation_config=gen_config)
+                    outputs = model.generate(**prompt_enc, generation_config=gen_config)
                     print(outputs)
                     # outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
                     # prompt_last_non_padding_idx = prompt_attention_mask.sum(dim=1) - 1
