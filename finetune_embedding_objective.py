@@ -41,10 +41,12 @@ def get_encoder(encoder_name, device, use_lora=False):
     
 
 # Define model
-def get_model(model_name, device, use_lora=True, lora_rank=128):
+def get_model(model_name, device, use_lora=True, lora_rank=64):
     
     torch.cuda.empty_cache()
     print(f'use model: {model_name}')
+    if use_lora:
+        print(f'lora rank: {lora_rank}')
 
     if use_unsloth:
         print('use unsloth')
@@ -87,7 +89,7 @@ def get_model(model_name, device, use_lora=True, lora_rank=128):
     if use_lora:
         # Apply LoRA configuration
         lora_config = LoraConfig(
-            r=64, 
+            r=lora_rank, 
             lora_alpha=128, 
             lora_dropout=0.05, 
             target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
