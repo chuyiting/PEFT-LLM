@@ -302,10 +302,16 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
                                              return_tensors="pt")
                 negative_enc = tokenizer(negative, padding="longest", truncation=True, return_tensors="pt")
 
-                print(prompt_enc.shape)
-                print(positive_enc.shape)
-                print(negative_enc.shape)
+                prompt_input_ids = prompt_enc.input_ids
+                prompt_attention_mask = prompt_enc.attention_mask
+                positive_input_ids = positive_enc.input_ids
+                positive_attention_mask = positive_enc.attention_mask
+                negative_input_ids = negative_enc.input_ids
+                negative_attention_mask = negative_enc.attention_mask
 
+
+                print(prompt_input_ids.shape)
+                print(negative_input_ids.shape)
 
 
                 if max_steps > 0 and num_steps >= max_steps:
