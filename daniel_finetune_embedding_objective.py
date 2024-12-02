@@ -204,12 +204,23 @@ Please identify the likely misconception or reasoning error that led the student
             "positive": positive,
             "negative": negative
         }
+    
 def collate_batch(batch):
     prompt = batch["prompt"]
     positive = batch["positive"]
     negative = batch["negative"]
 
-
+    negative = []
+    for i in range(len(prompt)):
+        tmp = []
+        for j in range(len(batch["negative"])):
+            tmp.append(batch["negative"][j][i])
+        negative.append(tmp)
+    return {
+        "prompt": prompt,
+        "positive": positive,
+        "negative": negative
+    }
 
 # Multiple Negative Ranking Loss
 class MultipleNegativeRankingLoss(nn.Module):
