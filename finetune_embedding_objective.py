@@ -326,7 +326,7 @@ def get_optimizer_grouped_parameters(
 
 
 # Finetuning script
-def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01, verbose=False, call_back=None, warmup_steps=0):
+def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01, verbose=True, call_back=None, warmup_steps=0):
 
     print(f'Number of training epoch: {epochs}')
     print(f'Batch size: {batch_size}')
@@ -360,7 +360,7 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
         return max(0.0, 1.0 - (step - warmup_steps) / (total_step - warmup_steps))  # Decay
 
     scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
-    scaler = GradScaler(init_scale=1.0, growth_interval=100)
+    # scaler = GradScaler(init_scale=1.0, growth_interval=100)
 
     model.train()
     if verbose:
@@ -398,41 +398,41 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                         outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
                         negative_hidden_states.append(outputs_negative.last_hidden_state[:, -1, :])  # Final hidden state of negative
                 else:
-                    with autocast(device_type='cuda'):
-                        outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
+                    #with autocast(device_type='cuda'):
+                    outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
 
-                        prompt_last_hidden_state = outputs.hidden_states[-1]
-                        prompt_last_non_padding_idx = prompt_attention_mask.sum(dim=1) - 1
-                        prompt_hidden_state = prompt_last_hidden_state[torch.arange(prompt_last_hidden_state.size(0)), prompt_last_non_padding_idx, :]
+                    prompt_last_hidden_state = outputs.hidden_states[-1]
+                    prompt_last_non_padding_idx = prompt_attention_mask.sum(dim=1) - 1
+                    prompt_hidden_state = prompt_last_hidden_state[torch.arange(prompt_last_hidden_state.size(0)), prompt_last_non_padding_idx, :]
 
-                        #prompt_hidden_state = outputs.hidden_states[-1][:, -1, :]  # Final hidden state of the last token of prompt
+                    #prompt_hidden_state = outputs.hidden_states[-1][:, -1, :]  # Final hidden state of the last token of prompt
 
-                        outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask, output_hidden_states=True)
-                        positive_last_hidden_state = outputs_positive.hidden_states[-1]
-                        positive_last_non_padding_idx = positive_attention_mask.sum(dim=1) - 1
-                        positive_hidden_state = positive_last_hidden_state[torch.arange(positive_last_hidden_state.size(0)), positive_last_non_padding_idx, :]
+                    outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask, output_hidden_states=True)
+                    positive_last_hidden_state = outputs_positive.hidden_states[-1]
+                    positive_last_non_padding_idx = positive_attention_mask.sum(dim=1) - 1
+                    positive_hidden_state = positive_last_hidden_state[torch.arange(positive_last_hidden_state.size(0)), positive_last_non_padding_idx, :]
 
-                        #positive_hidden_state = outputs_positive.hidden_states[-1][:, -1, :]  # Final hidden state of the last token of positive misconception
+                    #positive_hidden_state = outputs_positive.hidden_states[-1][:, -1, :]  # Final hidden state of the last token of positive misconception
 
-                        negative_hidden_states = []
-                        for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
-                            outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask, output_hidden_states=True)
-                            neg_hidden_state = outputs_negative.hidden_states[-1]
-                            neg_last_non_padding_idx = neg_attention_mask.sum(dim=1) - 1
-                            neg_embedding = neg_hidden_state[torch.arange(neg_hidden_state.size(0)), neg_last_non_padding_idx, :] 
-                            negative_hidden_states.append(neg_embedding)
-                            #negative_hidden_states.append(outputs_negative.hidden_states[-1][:, -1, :])  # Final hidden state of the last token of negative misconceptions
+                    negative_hidden_states = []
+                    for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
+                        outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask, output_hidden_states=True)
+                        neg_hidden_state = outputs_negative.hidden_states[-1]
+                        neg_last_non_padding_idx = neg_attention_mask.sum(dim=1) - 1
+                        neg_embedding = neg_hidden_state[torch.arange(neg_hidden_state.size(0)), neg_last_non_padding_idx, :] 
+                        negative_hidden_states.append(neg_embedding)
+                        #negative_hidden_states.append(outputs_negative.hidden_states[-1][:, -1, :])  # Final hidden state of the last token of negative misconceptions
                     
                 loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
-                # loss.backward()
-                scaler.scale(loss).backward()
+                loss.backward()
+                # scaler.scale(loss).backward()
                 
                 # Gradient clipping
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
-                scaler.step(optimizer)
-                scaler.update() 
-                # optimizer.step()
+                # scaler.step(optimizer)
+                # scaler.update() 
+                optimizer.step()
                 scheduler.step()
 
                 num_steps += 1
