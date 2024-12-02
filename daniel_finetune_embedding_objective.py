@@ -204,7 +204,7 @@ Please identify the likely misconception or reasoning error that led the student
             "positive": positive,
             "negative": negative
         }
-    
+
 def collate_batch(batch):
     prompt = batch["prompt"]
     positive = batch["positive"]
@@ -264,7 +264,7 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
             param.data = param.data.clamp_(-1.0, 1.0)  # Clamp to a smaller range
 
     # Prepare data
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_batch)
     optimizer = bnb.optim.AdamW32bit(
         model.parameters(),
         lr=lr,  # Learning rate
