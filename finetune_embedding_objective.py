@@ -41,7 +41,7 @@ def get_encoder(encoder_name, device, use_lora=False):
     
 
 # Define model
-def get_model(model_name, device, use_lora=True):
+def get_model(model_name, device, use_lora=True, lora_rank=128):
     
     torch.cuda.empty_cache()
     print(f'use model: {model_name}')
@@ -64,11 +64,11 @@ def get_model(model_name, device, use_lora=True):
         if use_lora:
             model = FastLanguageModel.get_peft_model(
                     model,
-                    r = 8, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
+                    r = lora_rank, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
                     target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
                                     "gate_proj", "up_proj", "down_proj",],
-                    lora_alpha = 16,
-                    lora_dropout = 0, # Supports any, but = 0 is optimized
+                    lora_alpha = 128,
+                    lora_dropout = 0.05, # Supports any, but = 0 is optimized
                     bias = "none",    # Supports any, but = "none" is optimized
                     # [NEW] "unsloth" uses 30% less VRAM, fits 2x larger batch sizes!
                     use_gradient_checkpointing = "unsloth", # True or "unsloth" for very long context
@@ -412,6 +412,7 @@ if __name__ == "__main__":
     parser.add_argument('--use_unsloth', action='store_true')
     parser.add_argument('--hugging_face_repo', type=str)
     parser.add_argument('--temperature', type=float, default=0.05)
+    parser.add_argument('--lora_rank', type=int, default=128)
 
 
     args = parser.parse_args()
@@ -420,7 +421,7 @@ if __name__ == "__main__":
 
     # Load model and tokenizer 
     device = torch.device("cuda" if torch.cuda.is_available() else"cpu")
-    model, tokenizer = get_model(model_name=model_name, device=device)
+    model, tokenizer = get_model(model_name=model_name, use_lora=True, lora_rank=args.lora_rank, device=device)
 
     # Load dataset
     dataset = MisconceptionDataset(tokenizer, k=args.k, data_path=data_path, cluster_path=cluster_path, misconception_map_path=misconception_map_path)
