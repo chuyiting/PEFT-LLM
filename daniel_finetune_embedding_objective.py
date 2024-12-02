@@ -317,7 +317,7 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
                     gen_config = transformers.GenerationConfig(max_length=512)
                     # anchor
                     outputs = model.generate(**prompt_enc, generation_config=gen_config)
-                    print(outputs)
+                    print(tokenizer.batch_decode(outputs, skip_special_tokens=True))
                     # outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
                     # prompt_last_non_padding_idx = prompt_attention_mask.sum(dim=1) - 1
                     prompt_hidden_state = outputs.last_hidden_state[torch.arange(outputs.last_hidden_state.size(0)), prompt_last_non_padding_idx, :]
