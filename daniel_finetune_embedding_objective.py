@@ -37,7 +37,7 @@ max_length = 256
 
 
 # Define model
-def get_model(model_name, device, use_lora=False):
+def get_model(model_name, device, use_lora=True):
     torch.cuda.empty_cache()
     print(f'use model: {model_name}')
 
