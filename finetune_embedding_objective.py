@@ -227,9 +227,8 @@ class TripletLoss(nn.Module):
     
 # Multiple Negative Ranking Loss
 class MultipleNegativeRankingLoss(nn.Module):
-    def __init__(self, margin=1.0, temperature=0.1):
+    def __init__(self, temperature=0.1):
         super().__init__()
-        self.margin = margin
         self.temperature = temperature
 
     def forward(self, anchor, positive_embeds, negative_embeds_list):
@@ -373,11 +372,11 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
         print(f"Epoch {epoch + 1}/{epochs}, Loss: {total_loss / len(dataloader)}")
         
 
-def get_loss_function(loss_type):
+def get_loss_function(loss_type, *args):
     """Returns the appropriate loss function based on the `loss_type`."""
     if loss_type == "multiple_negative_ranking":
         print('use multiple negative ranking loss')
-        return MultipleNegativeRankingLoss()
+        return MultipleNegativeRankingLoss(*args)
     elif loss_type == "triplet":
         print('use triplet loss')
         return TripletLoss()
@@ -412,6 +411,7 @@ if __name__ == "__main__":
     parser.add_argument('--model_name', type=str)
     parser.add_argument('--use_unsloth', action='store_true')
     parser.add_argument('--hugging_face_repo', type=str)
+    parser.add_argument('--temperature', type=float, default=0.05)
 
 
     args = parser.parse_args()
@@ -426,5 +426,5 @@ if __name__ == "__main__":
     dataset = MisconceptionDataset(tokenizer, k=args.k, data_path=data_path, cluster_path=cluster_path, misconception_map_path=misconception_map_path)
 
     # Train model
-    train(model, dataset, device=device, loss_fn=get_loss_function(args.loss_type), epochs=args.epoch, batch_size= args.batch_size, lr=args.lr, max_steps=args.max_steps, weight_decay=args.weight_decay, call_back=save_model)
+    train(model, dataset, device=device, loss_fn=get_loss_function(args.loss_type, args.temperature), epochs=args.epoch, batch_size= args.batch_size, lr=args.lr, max_steps=args.max_steps, weight_decay=args.weight_decay, call_back=save_model)
     
