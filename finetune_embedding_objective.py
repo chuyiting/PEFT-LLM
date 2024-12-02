@@ -285,7 +285,7 @@ def get_optimizer_grouped_parameters(
         weight_decay,
         lora_lr=5e-4,
         no_decay_name_list=["bias", "LayerNorm.weight"],
-        lora_name_list=["lora_right_weight", "lora_left_weight"],
+        lora_name_list=["lora_A", "lora_B"],
 ):
     optimizer_grouped_parameters = [
         {
@@ -339,14 +339,14 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
 
     # Prepare data
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    # optimizer = bnb.optim.AdamW8bit(
-    #     model.parameters(),
-    #     lr=lr,         # Learning rate
-    #     weight_decay=weight_decay  # L2 regularization
-    # )
-
     optimizer_grouped_parameters = get_optimizer_grouped_parameters(model, weight_decay, lr)
-    optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=lr, weight_decay=weight_decay)
+    optimizer = bnb.optim.AdamW8bit(
+        optimizer_grouped_parameters,
+        lr=lr,         # Learning rate
+        weight_decay=weight_decay  # L2 regularization
+    )
+
+    #optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=lr, weight_decay=weight_decay)
 
     num_iter_per_batch = len(dataset) // batch_size
     total_step = num_iter_per_batch * epochs
