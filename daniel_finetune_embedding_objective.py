@@ -205,22 +205,22 @@ Please identify the likely misconception or reasoning error that led the student
             "negative": negative
         }
 
-def collate_batch(batch):
-    print(batch)
-    prompt = batch["prompt"]
-    positive = batch["positive"]
-    negative = batch["negative"]
+def collate_batch(batchs):
+    prompts = []
+    positives = []
+    negatives = []
+    for b in batchs:
+        prompt = b["prompt"]
+        positive = b["positive"]
+        negative = b["negative"]
+        prompts.append(prompt)
+        positives.append(positive)
+        negatives.append(negative)
 
-    negative = []
-    for i in range(len(prompt)):
-        tmp = []
-        for j in range(len(batch["negative"])):
-            tmp.append(batch["negative"][j][i])
-        negative.append(tmp)
     return {
-        "prompt": prompt,
-        "positive": positive,
-        "negative": negative
+        "prompt": prompts,
+        "positive": positives,
+        "negative": negatives
     }
 
 # Multiple Negative Ranking Loss
