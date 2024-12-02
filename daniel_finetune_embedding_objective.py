@@ -6,7 +6,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
-from transformers import AutoModel, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import LoraConfig, get_peft_model
 from torch.optim.lr_scheduler import LambdaLR
 from torch.amp import autocast, GradScaler
@@ -78,7 +78,7 @@ def get_model(model_name, device, use_lora=True):
 
     #quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16)
     #model = AutoModel.from_pretrained(model_name, trust_remote_code=True, quantization_config=quantization_config)
-    model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+    model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=True)
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 
     if use_lora:
