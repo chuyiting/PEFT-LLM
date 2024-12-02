@@ -314,7 +314,7 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
 
                 # Forward pass for prompt, positive, and negative examples
                 if not use_unsloth:
-                    gen_config = transformers.GenerationConfig(max_length=512)
+                    gen_config = transformers.GenerationConfig(max_length=2048)
                     # anchor
                     outputs = model.generate(**prompt_enc, generation_config=gen_config)
                     print(tokenizer.batch_decode(outputs, skip_special_tokens=True))
