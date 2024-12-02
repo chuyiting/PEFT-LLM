@@ -1,6 +1,7 @@
 import pandas as pd
 
 import torch
+import transformers
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
@@ -302,22 +303,28 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
                                              return_tensors="pt")
                 negative_enc = tokenizer(negative, padding="longest", truncation=True, return_tensors="pt")
 
-                prompt_input_ids = prompt_enc.input_ids.to(device)
-                prompt_attention_mask = prompt_enc.attention_mask.to(device)
-                positive_input_ids = positive_enc.input_ids.to(device)
-                positive_attention_mask = positive_enc.attention_mask.to(device)
-                negative_input_ids = negative_enc.input_ids.to(device)
-                negative_attention_mask = negative_enc.attention_mask.to(device)
+                # prompt_input_ids = prompt_enc.input_ids.to(device)
+                # prompt_attention_mask = prompt_enc.attention_mask.to(device)
+                # positive_input_ids = positive_enc.input_ids.to(device)
+                # positive_attention_mask = positive_enc.attention_mask.to(device)
+                # negative_input_ids = negative_enc.input_ids.to(device)
+                # negative_attention_mask = negative_enc.attention_mask.to(device)
 
+                prompt_input_ids = prompt_enc.input_ids.to(device)
+                positive_input_ids = positive_enc.input_ids.to(device)
+                negative_input_ids = negative_enc.input_ids.to(device)
 
                 if max_steps > 0 and num_steps >= max_steps:
                     break
 
                 # Forward pass for prompt, positive, and negative examples
                 if not use_unsloth:
+                    gen_config = transformers.GenerationConfig(max_length=512)
                     # anchor
-                    outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
-                    prompt_last_non_padding_idx = prompt_attention_mask.sum(dim=1) - 1
+                    outputs = model.generate(inputs=prompt_input_ids, generation_config=gen_config)
+                    print(outputs)
+                    # outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
+                    # prompt_last_non_padding_idx = prompt_attention_mask.sum(dim=1) - 1
                     prompt_hidden_state = outputs.last_hidden_state[torch.arange(outputs.last_hidden_state.size(0)), prompt_last_non_padding_idx, :]
 
                     # positive
