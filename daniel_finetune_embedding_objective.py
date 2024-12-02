@@ -287,7 +287,7 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
     for epoch in tqdm(range(epochs), desc="Epochs"):
         total_loss = 0
         train_pbar = tqdm(dataloader)
-        with torch.autograd.detect_anomaly():
+        with (torch.autograd.detect_anomaly()):
             for batch in train_pbar:
                 optimizer.zero_grad()
 
@@ -300,18 +300,18 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
 
                 positive_enc = tokenizer(positive, padding="longest", truncation=True,
                                              return_tensors="pt")
-                negative_enc = tokenizer(negative, padding="longest", truncation=True, return_tensors="pt")
+                negative_enc = [tokenizer(neg, padding="longest", truncation=True, return_tensors="pt") for neg in negative]
 
                 prompt_input_ids = prompt_enc.input_ids
                 prompt_attention_mask = prompt_enc.attention_mask
                 positive_input_ids = positive_enc.input_ids
                 positive_attention_mask = positive_enc.attention_mask
-                negative_input_ids = negative_enc.input_ids
-                negative_attention_mask = negative_enc.attention_mask
-
+                negative_input_ids = torch.stack([neg.input_ids for neg in negative_enc])
+                negative_attention_mask = torch.stack([neg.attention_mask for neg in negative_enc])
 
                 print(prompt_input_ids.shape)
                 print(negative_input_ids.shape)
+                print(negative_attention_mask.shape)
 
 
                 if max_steps > 0 and num_steps >= max_steps:
