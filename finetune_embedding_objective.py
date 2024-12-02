@@ -5,7 +5,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
-from transformers import AutoModel, AutoTokenizer
+from transformers import set_seed, AutoModel, AutoTokenizer
 from peft import LoraConfig,get_peft_model
 from torch.optim.lr_scheduler import LambdaLR
 from torch.amp import autocast, GradScaler
@@ -280,8 +280,53 @@ class MultipleNegativeRankingLoss(nn.Module):
         # Return mean loss
         return loss.mean()
 
+def get_optimizer_grouped_parameters(
+        model,
+        weight_decay,
+        lora_lr=5e-4,
+        no_decay_name_list=["bias", "LayerNorm.weight"],
+        lora_name_list=["lora_right_weight", "lora_left_weight"],
+):
+    optimizer_grouped_parameters = [
+        {
+            "params": [
+                p for n, p in model.named_parameters()
+                if (not any(nd in n for nd in no_decay_name_list)
+                    and p.requires_grad and not any(nd in n
+                                                    for nd in lora_name_list))
+            ],
+            "weight_decay":
+                weight_decay,
+        },
+        {
+            "params": [
+                p for n, p in model.named_parameters()
+                if (not any(nd in n for nd in no_decay_name_list)
+                    and p.requires_grad and any(nd in n
+                                                for nd in lora_name_list))
+            ],
+            "weight_decay":
+                weight_decay,
+            "lr":
+                lora_lr
+        },
+        {
+            "params": [
+                p for n, p in model.named_parameters()
+                if (any(nd in n
+                        for nd in no_decay_name_list) and p.requires_grad)
+            ],
+            "weight_decay":
+                0.0,
+        },
+    ]
+    if not optimizer_grouped_parameters[1]["params"]:
+        optimizer_grouped_parameters.pop(1)
+    return optimizer_grouped_parameters
+
+
 # Finetuning script
-def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01, verbose=False, call_back=None):
+def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01, verbose=False, call_back=None, warmup_steps=0):
 
     print(f'Number of training epoch: {epochs}')
     print(f'Batch size: {batch_size}')
@@ -294,14 +339,28 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
 
     # Prepare data
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    optimizer = bnb.optim.AdamW8bit(
-        model.parameters(),
-        lr=lr,         # Learning rate
-        weight_decay=weight_decay  # L2 regularization
-    )
+    # optimizer = bnb.optim.AdamW8bit(
+    #     model.parameters(),
+    #     lr=lr,         # Learning rate
+    #     weight_decay=weight_decay  # L2 regularization
+    # )
 
-    scheduler = LambdaLR(optimizer, lr_lambda=lambda step: max(0.0, 1.0 - step / float(max_steps)))
-    #scaler = GradScaler()
+    optimizer_grouped_parameters = get_optimizer_grouped_parameters(model, weight_decay, lr)
+    optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=lr, weight_decay=weight_decay)
+
+    num_iter_per_batch = len(dataset) // batch_size
+    total_step = num_iter_per_batch * epochs
+    
+    if warmup_steps == 0:
+        warmup_steps = total_step * 0.03
+
+    def lr_lambda(step):
+        if step < warmup_steps:
+            return step / warmup_steps  # Linear warm-up
+        return max(0.0, 1.0 - (step - warmup_steps) / (total_step - warmup_steps))  # Decay
+
+    scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
+    scaler = GradScaler(init_scale=1.0, growth_interval=100)
 
     model.train()
     if verbose:
@@ -365,15 +424,15 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                         #negative_hidden_states.append(outputs_negative.hidden_states[-1][:, -1, :])  # Final hidden state of the last token of negative misconceptions
                     
                 loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
-                loss.backward()
-                #scaler.scale(loss).backward()
+                # loss.backward()
+                scaler.scale(loss).backward()
                 
                 # Gradient clipping
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
-                # scaler.step(optimizer)
-                # scaler.update() 
-                optimizer.step()
+                scaler.step(optimizer)
+                scaler.update() 
+                # optimizer.step()
                 scheduler.step()
 
                 num_steps += 1
