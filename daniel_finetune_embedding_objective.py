@@ -206,6 +206,7 @@ Please identify the likely misconception or reasoning error that led the student
         }
 
 def collate_batch(batch):
+    print(batch)
     prompt = batch["prompt"]
     positive = batch["positive"]
     negative = batch["negative"]
