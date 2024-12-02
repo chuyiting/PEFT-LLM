@@ -94,7 +94,7 @@ def get_model(model_name, device, use_lora=True):
         )
 
         model = get_peft_model(model, lora_config)
-    model.print_trainable_parameters()
+        model.print_trainable_parameters()
     model.to(device)
 
     return model, tokenizer
