@@ -295,14 +295,13 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
             similarities = cosine_similarity(input_embeddings.cpu(), misconception_embeddings)
             # Sort the misconceptions based on similarity
             sorted_misconception_indices = torch.argsort(similarities, dim=1, descending=True)
+
             print('check')
             print(similarities[0])
             print(sorted_misconception_indices[0, :5])
             print(similarities[0, sorted_misconception_indices[0, :5]])
 
-            # Map sorted indices to misconception IDs
-            sorted_misconception_ids = [[misconception_ids[i] for i in row] for row in sorted_misconception_indices.cpu().numpy()]
-            all_sorted_misconceptions.append(sorted_misconception_ids)
+            all_sorted_misconceptions.append(sorted_misconception_indices)
 
             # Ensure labels are a consistent shape
             correct_labels = torch.tensor(labels).unsqueeze(-1).cpu()  # Convert list to tensor and reshape to (B, 1)
