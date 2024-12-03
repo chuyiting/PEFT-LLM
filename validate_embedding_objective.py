@@ -293,8 +293,7 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16, cluste
         for batch in tqdm(dataloader):
             prompt_input_ids = batch['prompt_input_ids'].to(device)
             prompt_attention_mask = batch['prompt_attention_mask'].to(device)
-            labels = batch['label'][0].detach().cpu().numpy()
-            print(labels)
+            labels = batch['label'][0].detach().cpu().numpy() # (B)
 
             # Get the model's output for the batch
             outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
@@ -321,7 +320,7 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16, cluste
         
         all_sorted_misconceptions = np.vstack(all_sorted_misconceptions).astype(int)  # Shape (B, num_misconceptions)
         print(f'misconception shape: {all_sorted_misconceptions.shape}')
-        all_correct_labels = np.vstack(all_correct_labels).astype(int)  # Shape (B, 1)
+        all_correct_labels = np.concatenate(all_correct_labels).astype(int).reshape(-1, 1)  # Shape (B, 1)
         print(f'all label shape: {all_correct_labels.shape}')
 
     return mapk(all_correct_labels, all_sorted_misconceptions, cluster_map)
