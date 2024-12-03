@@ -223,6 +223,9 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
 
     model.eval()  # Set model to evaluation mode
 
+    for name, param in model.base_model.named_parameters():
+        print(f"Parameter: {name}, Requires Grad: {param.requires_grad}") 
+
     misconception_embeddings, misconception_ids = calculate_misconception_hidden_states(model, tokenizer, misconception_map)
 
     for batch in tqdm(dataloader):
