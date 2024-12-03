@@ -204,11 +204,15 @@ def calculate_misconception_hidden_states(model, tokenizer, misconception_map):
 
         misconception_hidden_states.append(hidden_state.cpu())
         misconception_ids.append(misconception_id)
+
         # Free up memory
-        del outputs  # Delete model outputs
-        del last_hidden_state  # Delete last hidden state
-        del hidden_state  # Delete hidden state
-        torch.cuda.empty_cache()  # Clear unused memory on GPU
+        del outputs  
+        del last_hidden_state  
+        del hidden_state 
+        del input_ids
+        del enc
+        del attention_mask
+        torch.cuda.empty_cache()  
        
     return misconception_hidden_states, misconception_ids
 
