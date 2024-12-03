@@ -58,7 +58,7 @@ def apk(actual, predicted, k=25, cluster_map=None):
     """
 
     if not actual:
-        return 0.0
+        return 0.0, 0.0, 0.0
 
     print(predicted)
     if len(predicted) > k:
@@ -67,18 +67,18 @@ def apk(actual, predicted, k=25, cluster_map=None):
     print(f'actual {actual}')
     print(f'predicted {predicted}')
 
-    num_in_cluster = 0
-    rank = 0
+    num_in_cluster = 0.0
+    rank = 0.0
     if cluster_map is not None:
         cluster_status = []
         cluster_id = cluster_map[actual[0]]
         for mis_id in predicted:
             if cluster_map[mis_id] == cluster_id:
-                cluster_status.append(1)
+                cluster_status.append(1.0)
                 if mis_id == actual[0] and rank == 0:
                     rank = sum(cluster_status)
             else:
-                cluster_status.append(0)
+                cluster_status.append(0.0)
         num_in_cluster = sum(cluster_status)
         print(f'number of top 25 in cluster: {num_in_cluster}')
 
@@ -92,7 +92,7 @@ def apk(actual, predicted, k=25, cluster_map=None):
             num_hits += 1.0
             score += num_hits / (i+1.0)
 
-    return score / min(len(actual), k), rank, num_in_cluster
+    return (score / min(len(actual), k), rank, num_in_cluster)
 
 def mapk(actual, predicted, k=25, cluster_map=None):
     """
