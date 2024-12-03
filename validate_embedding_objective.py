@@ -98,7 +98,8 @@ def mapk(actual, predicted, k=25):
     score : double
             The mean average precision at k over the input lists
     """
-    
+    print(f'actual shape {actual.shape}')
+    print(f'predicted shape: {predicted.shape}')
     return np.mean([apk(a,p,k) for a,p in zip(actual, predicted)])
 
 
