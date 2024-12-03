@@ -67,16 +67,20 @@ def apk(actual, predicted, k=25, cluster_map=None):
     print(f'actual {actual}')
     print(f'predicted {predicted}')
 
+    num_in_cluster = 0
+    rank = 0
     if cluster_map is not None:
         cluster_status = []
         cluster_id = cluster_map[actual[0]]
         for mis_id in predicted:
             if cluster_map[mis_id] == cluster_id:
                 cluster_status.append(1)
+                if mis_id == actual[0] and rank == 0:
+                    rank = sum(cluster_status)
             else:
                 cluster_status.append(0)
-        print(cluster_status)
-        print(f'number of top 25 in cluster: {sum(cluster_status)}')
+        num_in_cluster = sum(cluster_status)
+        print(f'number of top 25 in cluster: {num_in_cluster}')
 
     score = 0.0
     num_hits = 0.0
@@ -88,7 +92,7 @@ def apk(actual, predicted, k=25, cluster_map=None):
             num_hits += 1.0
             score += num_hits / (i+1.0)
 
-    return score / min(len(actual), k)
+    return score / min(len(actual), k), rank, num_in_cluster
 
 def mapk(actual, predicted, k=25, cluster_map=None):
     """
@@ -114,10 +118,17 @@ def mapk(actual, predicted, k=25, cluster_map=None):
             The mean average precision at k over the input lists
     """
     scores = []
+    ranks = []
+    num_in_clusters = []
     N, _ = actual.shape
     for i in range(N):
-        scores.append(apk(actual[i], predicted[i], k, cluster_map=cluster_map))
-    return np.mean(scores)
+        score, rank, num_in_cluster = apk(actual[i], predicted[i], k, cluster_map=cluster_map)
+        scores.append(score)
+        if rank > 0:
+            ranks.append(rank)
+        num_in_clusters.append(num_in_cluster)
+
+    return np.mean(scores), np.mean(ranks), np.mean(num_in_clusters)
 
 
 def get_pretrained(model_name, device):
@@ -349,5 +360,7 @@ if __name__ == "__main__":
     cluster_map = prepare_cluster_map(cluster_path)
 
     # Train model
-    map25 = evaluate(model, tokenizer, misconception_map, dataset, batch_size=args.batch_size, cluster_map=cluster_map)
+    map25, rank, num_in_cluster = evaluate(model, tokenizer, misconception_map, dataset, batch_size=args.batch_size, cluster_map=cluster_map)
     print(f'MAP@25 score: {map25}')
+    print(f'Average rank among cluster: {rank}')
+    print(f'Average number in cluster: {num_in_cluster}')
