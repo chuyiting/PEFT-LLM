@@ -65,7 +65,6 @@ class MisconceptionDataset(Dataset):
         
         anchors = [" ".join([c, s, q, a, w]) for c, s, q, a, w in zip(
             self.construct_name, self.subject_name, self.question_text, self.correct_answer_text, self.wrong_answer_text)]
-        print('clear!!')
         anchor_embeddings = self.model.encode(anchors, device=self.device, normalize_embeddings=True)
 
         similarity_matrix = cosine_similarity(anchor_embeddings, misconception_embeddings)
@@ -203,6 +202,11 @@ def train(model, k, device, new_negative_num, synthetic_weight, loss_fn, epochs=
 
                 new_negative_embeddings = generate_new_negatives(negative_embeddings, new_negative_num)
                 new_positive_embeddings = generate_new_positive(anchor_embeddings, positive_embeddings, negative_embeddings[:, 0, :])
+
+                anchor_embeddings.requires_grad_()
+                positive_embeddings.requires_grad_()
+                new_positive_embeddings.requires_grad_()
+                new_negative_embeddings.requires_grad_()
 
                 origin_loss = loss_fn(anchor_embeddings, positive_embeddings, new_negative_embeddings)
                 synthetic_loss = loss_fn(anchor_embeddings, new_positive_embeddings, new_negative_embeddings)
