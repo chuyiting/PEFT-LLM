@@ -28,14 +28,14 @@ max_seq_length = 512 # Choose any! We auto support RoPE Scaling internally!
 dtype = torch.float16 # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
 load_in_4bit = True  # Use 4bit quantization to reduce memory usage. Can be False.
 
-
+cluster_path= os.path.join(os.getcwd(), 'data/misconception_cluster.csv')
 model_name = 'unsloth/Qwen2.5-32B-bnb-4bit' #unsloth/
 data_path = os.path.join(os.getcwd(), 'data/full_finetune_data.csv')
 cluster_path= os.path.join(os.getcwd(), 'data/misconception_cluster.csv')
 misconception_map_path = os.path.join(os.getcwd(), 'data/misconception_mapping.csv')
 max_length = 256
 
-def apk(actual, predicted, k=25):
+def apk(actual, predicted, k=25, cluster_map=None):
     """
     Computes the average precision at k.
     
@@ -65,6 +65,18 @@ def apk(actual, predicted, k=25):
 
     print(f'actual {actual}')
     print(f'predicted {predicted}')
+
+    if cluster_map is not None:
+        cluster_status = []
+        cluster_id = cluster_map[actual[0]]
+        for mis_id in predicted:
+            if cluster_map[mis_id] == cluster_id:
+                cluster_status.append(1)
+            else:
+                cluster_status.append(0)
+        print(cluster_status)
+        print(f'number of top 25 in cluster: {sum(cluster_status)}')
+
     score = 0.0
     num_hits = 0.0
 
@@ -77,7 +89,7 @@ def apk(actual, predicted, k=25):
 
     return score / min(len(actual), k)
 
-def mapk(actual, predicted, k=25):
+def mapk(actual, predicted, k=25, cluster_map=None):
     """
     Computes the mean average precision at k.
     
@@ -100,7 +112,7 @@ def mapk(actual, predicted, k=25):
     score : double
             The mean average precision at k over the input lists
     """
-    return np.mean([apk(a,p,k) for a,p in zip(actual, predicted)])
+    return np.mean([apk(a,p,k, cluster_map=cluster_map) for a,p in zip(actual, predicted)])
 
 
 def get_pretrained(model_name, device):
@@ -263,7 +275,7 @@ def cosine_similarity(input_embeddings, misconception_hidden_states):
     return torch.mm(input_norm, misconception_norm.t())  # shape: (batch_size, num_misconceptions)
 
 
-def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
+def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16, cluster_map=None):
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     all_sorted_misconceptions = []
@@ -314,7 +326,14 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
         all_sorted_misconceptions = np.vstack(all_sorted_misconceptions).astype(int)  # Shape (B, num_misconceptions)
         all_correct_labels = np.vstack(all_correct_labels).astype(int)  # Shape (B, 1)
 
-    return mapk(all_correct_labels, all_sorted_misconceptions)
+    return mapk(all_correct_labels, all_sorted_misconceptions, cluster_map)
+
+def prepare_cluster_map(cluster_path):
+    df = pd.read_csv(cluster_path)
+    cluster_map = defaultdict(list)
+    for _, row in df.iterrows():
+        cluster_map[row['MisconceptionId']].append(row['ClusterId'])
+    return cluster_map
 
 # Example usage
 if __name__ == "__main__":
@@ -334,7 +353,8 @@ if __name__ == "__main__":
     # Load dataset
     dataset = MisconceptionDataset(tokenizer, data_path=data_path, misconception_map_path=misconception_map_path)
     misconception_map = prepare_misconception_map(misconception_map_path)
+    cluster_map = prepare_cluster_map(cluster_path)
 
     # Train model
-    map25 = evaluate(model, tokenizer, misconception_map, dataset, batch_size=args.batch_size)
+    map25 = evaluate(model, tokenizer, misconception_map, dataset, batch_size=args.batch_size, cluster_map=cluster_map)
     print(f'MAP@25 score: {map25}')
