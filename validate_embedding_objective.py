@@ -63,6 +63,8 @@ def apk(actual, predicted, k=25):
     if len(predicted)>k:
         predicted = predicted[:k]
 
+    print(f'actual {actual}')
+    print(f'predicted {predicted}')
     score = 0.0
     num_hits = 0.0
 
