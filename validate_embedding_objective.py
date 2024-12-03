@@ -116,9 +116,7 @@ def mapk(actual, predicted, k=25, cluster_map=None):
     scores = []
     N, _ = actual.shape
     for i in range(N):
-        print(type(predicted[i]))
-        p = list(predicted[i].values())
-        scores.append(apk(actual[i], p, k, cluster_map=cluster_map))
+        scores.append(apk(actual[i], predicted[i], k, cluster_map=cluster_map))
     return np.mean(scores)
 
 
