@@ -215,7 +215,7 @@ def train(model, k, device, new_negative_num, synthetic_weight, loss_fn, epochs=
                 # scaler.scale(loss).backward()
 
                 # Gradient clipping
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
                 # scaler.step(optimizer)
                 # scaler.update()
