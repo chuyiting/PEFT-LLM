@@ -278,7 +278,10 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
         for batch in tqdm(dataloader):
             prompt_input_ids = batch['prompt_input_ids'].to(device)
             prompt_attention_mask = batch['prompt_attention_mask'].to(device)
-            label = batch['label']
+            labels = batch['label']
+            print(labels)
+             # Convert labels to the correct shape
+            labels = torch.tensor([label[0] for label in labels])  # Extract the label from the list and convert
 
             # Get the model's output for the batch
             outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
@@ -297,7 +300,7 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
             all_sorted_misconceptions.append(sorted_misconception_ids)
 
             # Ensure labels are a consistent shape
-            correct_labels = torch.tensor(label).unsqueeze(-1).cpu()  # Convert list to tensor and reshape to (B, 1)
+            correct_labels = torch.tensor(labels).unsqueeze(-1).cpu()  # Convert list to tensor and reshape to (B, 1)
             print(f'correct label shape: {correct_labels.shape}')
             # Append the correctly shaped labels
             all_correct_labels.append(correct_labels.numpy())
