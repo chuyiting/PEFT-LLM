@@ -34,14 +34,37 @@ cluster_path= os.path.join(os.getcwd(), 'data/misconception_cluster.csv')
 misconception_map_path = os.path.join(os.getcwd(), 'data/misconception_mapping.csv')
 max_length = 256
 
-encoder_name = 'microsoft/deberta-base'
+def get_pretrained(model_name, device):
+    # this is a hack now, it does handle all the cases for now
+    print("use pretrained model")
+    model, tokenizer = FastLanguageModel.from_pretrained(
+        model_name = model_name,
+        max_seq_length = max_seq_length,
+        dtype = dtype,
+        load_in_4bit = load_in_4bit,
+    )
 
-def get_encoder(encoder_name, device, use_lora=False):
-    tokenizer = AutoTokenizer.from_pretrained(encoder_name)
-    
+    tokenizer = get_chat_template(
+        tokenizer,
+        chat_template = "alpaca", # Supports zephyr, chatml, mistral, llama, alpaca, vicuna, vicuna_old, unsloth
+        map_eos_token = True, # Maps <|im_end|> to </s> instead
+    )
+
+    # Freeze all parameters by default
+    for param in model.parameters():
+        param.requires_grad = False
+
+    # Enable gradients only for LoRA parameters
+    for name, param in model.named_parameters():
+        if "lora" in name.lower():  # Assumes LoRA parameters are named appropriately
+            param.requires_grad = True
+            print(f"LoRA parameter {name} is set to require gradients")
+
+    return model, tokenizer
+
 
 # Define model
-def get_model(model_name, device, use_lora=True, lora_rank=64):
+def get_model(model_name, device, use_lora=True, lora_rank=64, use_pretrained=False):
     
     torch.cuda.empty_cache()
     print(f'use model: {model_name}')
@@ -326,7 +349,7 @@ def get_optimizer_grouped_parameters(
 
 
 # Finetuning script
-def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01, verbose=True, call_back=None, warmup_steps=0):
+def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01, verbose=True, call_back=None, use_scheduler=True, warmup_steps=0):
 
     print(f'Number of training epoch: {epochs}')
     print(f'Batch size: {batch_size}')
@@ -346,6 +369,12 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
         weight_decay=weight_decay  # L2 regularization
     )
 
+    if verbose:
+        print('params in optimizer')
+        for param_group in optimizer.param_groups:
+            for param in param_group['params']:
+                print(param)
+
     #optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=lr, weight_decay=weight_decay)
 
     num_iter_per_batch = len(dataset) // batch_size
@@ -359,7 +388,9 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
             return step / warmup_steps  # Linear warm-up
         return max(0.0, 1.0 - (step - warmup_steps) / (total_step - warmup_steps))  # Decay
 
-    scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
+    if use_scheduler:
+        print('use learning rate scheduler')
+        scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
     # scaler = GradScaler(init_scale=1.0, growth_interval=100)
 
     model.train()
@@ -433,10 +464,11 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
                 # scaler.step(optimizer)
                 # scaler.update() 
                 optimizer.step()
-                scheduler.step()
+                if use_scheduler:
+                    scheduler.step()
 
                 num_steps += 1
-                print(f"Loss: {loss.item()}")
+                print(f"\nLoss: {loss.item()}")
 
         if call_back is not None:
             print(f'saving model at epoch {epoch}')
@@ -488,6 +520,8 @@ if __name__ == "__main__":
     parser.add_argument('--hugging_face_repo', type=str)
     parser.add_argument('--temperature', type=float, default=0.05)
     parser.add_argument('--lora_rank', type=int, default=128)
+    parser.add_argument('--use_pretrained', action='store_true')
+    parser.add_argument('--turn_off_lrscheduler', action='store_true', default=False)
 
 
     args = parser.parse_args()
@@ -496,11 +530,15 @@ if __name__ == "__main__":
 
     # Load model and tokenizer 
     device = torch.device("cuda" if torch.cuda.is_available() else"cpu")
-    model, tokenizer = get_model(model_name=model_name, use_lora=True, lora_rank=args.lora_rank, device=device)
+    if args.use_pretrained:
+        model, tokenizer = get_pretrained(model_name, device)
+    else:
+        model, tokenizer = get_model(model_name=model_name, use_lora=True, lora_rank=args.lora_rank, device=device)
+
 
     # Load dataset
     dataset = MisconceptionDataset(tokenizer, k=args.k, data_path=data_path, cluster_path=cluster_path, misconception_map_path=misconception_map_path)
 
     # Train model
-    train(model, dataset, device=device, loss_fn=get_loss_function(args.loss_type, args.temperature), epochs=args.epoch, batch_size= args.batch_size, lr=args.lr, max_steps=args.max_steps, weight_decay=args.weight_decay, call_back=save_model)
+    train(model, dataset, device=device, loss_fn=get_loss_function(args.loss_type, args.temperature), epochs=args.epoch, batch_size= args.batch_size, lr=args.lr, max_steps=args.max_steps, weight_decay=args.weight_decay, use_scheduler = not args.turn_off_lrscheduler, call_back=save_model)
     
