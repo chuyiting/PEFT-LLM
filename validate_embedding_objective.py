@@ -194,7 +194,7 @@ def calculate_misconception_hidden_states(model, tokenizer, misconception_map):
 
     for misconception_id, misconception_name in misconception_map.items():
         enc = tokenizer(misconception_name, padding="max_length", truncation=True, max_length=max_length, return_tensors="pt")
-        input_ids = enc.enc.input_ids.squeeze(0)
+        input_ids = enc.input_ids.squeeze(0)
         attention_mask = enc.attention_mask.squeeze(0)
         outputs = model(input_ids=input_ids, attention_mask=attention_mask, output_hidden_states=True)
         last_hidden_state = outputs.hidden_states[-1]
@@ -259,9 +259,7 @@ if __name__ == "__main__":
 
     # Add arguments
     parser.add_argument('--model_name', type=str)
-    parser.add_argument('--use_unsloth', action='store_true')
     parser.add_argument('--batch_size', type=int, default=16)
-
 
     args = parser.parse_args()
     use_unsloth = args.use_unsloth
