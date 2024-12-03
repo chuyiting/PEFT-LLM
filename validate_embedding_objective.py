@@ -279,7 +279,6 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
             prompt_input_ids = batch['prompt_input_ids'].to(device)
             prompt_attention_mask = batch['prompt_attention_mask'].to(device)
             labels = batch['label']
-            print(labels)
              # Convert labels to the correct shape
             labels = torch.tensor([label[0] for label in labels])  # Extract the label from the list and convert
 
@@ -301,12 +300,11 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
 
             # Ensure labels are a consistent shape
             correct_labels = torch.tensor(labels).unsqueeze(-1).cpu()  # Convert list to tensor and reshape to (B, 1)
-            print(f'correct label shape: {correct_labels.shape}')
             # Append the correctly shaped labels
             all_correct_labels.append(correct_labels.numpy())
         
-        all_sorted_misconceptions = np.vstack(all_sorted_misconceptions)  # Shape (B, num_misconceptions)
-        all_correct_labels = np.vstack(all_correct_labels)  # Shape (B, 1)
+        all_sorted_misconceptions = np.vstack(all_sorted_misconceptions).astype(int)  # Shape (B, num_misconceptions)
+        all_correct_labels = np.vstack(all_correct_labels).astype(int)  # Shape (B, 1)
 
     return mapk(all_correct_labels, all_correct_labels)
 
