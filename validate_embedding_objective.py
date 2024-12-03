@@ -297,9 +297,12 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
             sorted_misconception_indices = torch.argsort(similarities, dim=1, descending=True)
 
             print('check')
-            print(similarities[0])
-            print(sorted_misconception_indices[0, :5])
-            print(similarities[0, sorted_misconception_indices[0, :5]])
+            for i in range(len(labels)):
+                print(f'label similarity: {similarities[i, labels[i]]}')
+                
+                print(labels[i])
+                print(sorted_misconception_indices[i, :5])
+                print(similarities[i, sorted_misconception_indices[i, :5]])
 
             all_sorted_misconceptions.append(sorted_misconception_indices)
 
