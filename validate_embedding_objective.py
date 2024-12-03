@@ -187,38 +187,97 @@ Please identify the likely misconception or reasoning error that led the student
         }
 
 
-def calculate_misconception_hidden_states(model, tokenizer, misconception_map):
+class MisconceptionNameDataset(Dataset):
+    def __init__(self, misconception_map, tokenizer, max_length):
+        self.misconception_map = misconception_map
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+        
+        # Prepare list of misconceptions and their ids for fast access
+        self.misconceptions = list(misconception_map.items())
+
+    def __len__(self):
+        return len(self.misconceptions)
+
+    def __getitem__(self, idx):
+        misconception_id, misconception_name = self.misconceptions[idx]
+        
+        # Tokenize the misconception
+        enc = self.tokenizer(misconception_name, padding="max_length", truncation=True, max_length=self.max_length, return_tensors="pt")
+        
+        # Return the tokenized data
+        return {
+            'misconception_id': misconception_id,
+            'input_ids': enc.input_ids.squeeze(0),
+            'attention_mask': enc.attention_mask.squeeze(0)
+        }
+
+
+
+# Custom Dataset Class
+class MisconceptionDataset(Dataset):
+    def __init__(self, misconception_map, tokenizer, max_length):
+        self.misconception_map = misconception_map
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+        
+        # Prepare list of misconceptions and their ids for fast access
+        self.misconceptions = list(misconception_map.items())
+
+    def __len__(self):
+        return len(self.misconceptions)
+
+    def __getitem__(self, idx):
+        misconception_id, misconception_name = self.misconceptions[idx]
+        
+        # Tokenize the misconception
+        enc = self.tokenizer(misconception_name, padding="max_length", truncation=True, max_length=self.max_length, return_tensors="pt")
+        
+        # Return the tokenized data
+        return {
+            'misconception_id': misconception_id,
+            'input_ids': enc.input_ids.squeeze(0),
+            'attention_mask': enc.attention_mask.squeeze(0)
+        }
+
+# Function to calculate misconception hidden states in batches
+def calculate_misconception_hidden_states(model, tokenizer, misconception_map, batch_size=16, max_length=512, device='cuda'):
     misconception_hidden_states = []
     misconception_ids = []
 
     print("start encoding misconceptions...")
     model.eval()
+
+    # Create a DataLoader for batching
+    dataset = MisconceptionNameDataset(misconception_map, tokenizer, max_length)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+
     with torch.no_grad():
-        for misconception_id, misconception_name in misconception_map.items():
-            enc = tokenizer(misconception_name, padding="max_length", truncation=True, max_length=max_length, return_tensors="pt")
-            input_ids = enc.input_ids
-            attention_mask = enc.attention_mask
+        for batch in dataloader:
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+
+            # Forward pass
             outputs = model(input_ids=input_ids, attention_mask=attention_mask, output_hidden_states=True)
             last_hidden_state = outputs.hidden_states[-1]
 
+            # Get last non-padding token's hidden state
             last_non_padding_idx = attention_mask.sum(dim=1) - 1
             hidden_state = last_hidden_state[torch.arange(last_hidden_state.size(0)), last_non_padding_idx, :]
 
+            # Store the results
             misconception_hidden_states.append(hidden_state.cpu())
-            misconception_ids.append(misconception_id)
+            misconception_ids.extend(batch['misconception_id'])
 
-            # Free up memory
-            del outputs  
-            del last_hidden_state  
-            del hidden_state 
-            del input_ids
-            del enc
-            del attention_mask
-            torch.cuda.empty_cache()  
-    
+            # Clear cache to avoid memory issues
+            del outputs, last_hidden_state, hidden_state
+            torch.cuda.empty_cache()
+
+    misconception_hidden_states = torch.cat(misconception_hidden_states, dim=0)  # Concatenate all hidden states
     print("finish encoding misconceptions...")
-       
+
     return misconception_hidden_states, misconception_ids
+
 
 def cosine_similarity(input_embeddings, misconception_hidden_states):
     # Normalize both input and misconception embeddings
@@ -246,7 +305,7 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
         for batch in tqdm(dataloader):
             prompt_input_ids = batch['prompt_input_ids'].to(device)
             prompt_attention_mask = batch['prompt_attention_mask'].to(device)
-            label = batch['label'].cpu().numpy()
+            label = batch['label']
 
             # Get the model's output for the batch
             outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
