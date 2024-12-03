@@ -298,7 +298,7 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
 
             print('check')
             for i in range(len(labels)):
-                print(f'label similarity: {similarities[i, labels[i]]}')
+                print(f'label similarity: {similarities[i, int(labels[i])]}')
                 
                 print(labels[i])
                 print(sorted_misconception_indices[i, :5])
