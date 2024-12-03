@@ -60,6 +60,7 @@ def apk(actual, predicted, k=25, cluster_map=None):
     if not actual:
         return 0.0
 
+    print(predicted)
     if len(predicted)>k:
         predicted = predicted[:k]
 
