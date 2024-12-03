@@ -198,7 +198,6 @@ Please identify the likely misconception or reasoning error that led the student
             'negative_attention_mask': [neg_enc.attention_mask.squeeze(0) for neg_enc in negative_encs]
         }
 
-
 class TripletLoss(nn.Module):
     def __init__(self, margin=1.0):
         super().__init__()

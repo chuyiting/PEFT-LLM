@@ -1,15 +1,18 @@
 import pandas as pd
+from sentence_transformers import SentenceTransformer
+from info_nce import InfoNCE, info_nce
+# from sklearn.metrics.pairwise import cosine_similarity
+from torch.nn.functional import cosine_similarity
 
 import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
-from transformers import AutoModel, AutoTokenizer
-from peft import LoraConfig, get_peft_model
+from transformers import AdamW
 from torch.optim.lr_scheduler import LambdaLR
 from torch.amp import autocast, GradScaler
-import bitsandbytes as bnb
+# import bitsandbytes as bnb
 
 from tqdm import tqdm
 from collections import defaultdict
@@ -17,86 +20,10 @@ import random
 import argparse
 import os
 
-from unsloth import FastLanguageModel, is_bfloat16_supported
-from unsloth.chat_templates import get_chat_template
-from huggingface_hub import login
-
-from transformers import BitsAndBytesConfig
-
-# unsloth
-use_unsloth = False
-max_seq_length = 512  # Choose any! We auto support RoPE Scaling internally!
-dtype = torch.float16  # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
-load_in_4bit = True  # Use 4bit quantization to reduce memory usage. Can be False.
-
-model_name = 'unsloth/Qwen2.5-32B-bnb-4bit'  # unsloth/
 data_path = os.path.join(os.getcwd(), 'data/full_finetune_data.csv')
 cluster_path = os.path.join(os.getcwd(), 'data/misconception_cluster.csv')
 misconception_map_path = os.path.join(os.getcwd(), 'data/misconception_mapping.csv')
 max_length = 256
-
-
-# Define model
-def get_model(model_name, device, use_lora=True):
-    torch.cuda.empty_cache()
-    print(f'use model: {model_name}')
-
-    if use_unsloth:
-        print('use unsloth')
-        model, tokenizer = FastLanguageModel.from_pretrained(
-            model_name=model_name,
-            max_seq_length=max_seq_length,
-            dtype=dtype,
-            load_in_4bit=load_in_4bit,
-        )
-
-        tokenizer = get_chat_template(
-            tokenizer,
-            chat_template="alpaca",  # Supports zephyr, chatml, mistral, llama, alpaca, vicuna, vicuna_old, unsloth
-            map_eos_token=True,  # Maps <|im_end|> to </s> instead
-        )
-
-        if use_lora:
-            model = FastLanguageModel.get_peft_model(
-                model,
-                r=8,  # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
-                target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
-                                "gate_proj", "up_proj", "down_proj", ],
-                lora_alpha=16,
-                lora_dropout=0,  # Supports any, but = 0 is optimized
-                bias="none",  # Supports any, but = "none" is optimized
-                # [NEW] "unsloth" uses 30% less VRAM, fits 2x larger batch sizes!
-                use_gradient_checkpointing="unsloth",  # True or "unsloth" for very long context
-                random_state=3407,
-                use_rslora=False,  # We support rank stabilized LoRA
-                loftq_config=None,  # And LoftQ
-                inference_mode=False,
-            )
-        model.to(torch.float16)
-        return model, tokenizer
-
-    quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16)
-    model = AutoModel.from_pretrained(model_name, trust_remote_code=True, quantization_config=quantization_config)
-    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-
-    if use_lora:
-        # Apply LoRA configuration
-        lora_config = LoraConfig(
-            r=8,
-            lora_alpha=16,
-            lora_dropout=0.1,
-            target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
-                            "gate_proj", "up_proj", "down_proj"],
-            #target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
-            bias='none'
-        )
-
-        model = get_peft_model(model, lora_config)
-    model.print_trainable_parameters()
-    model.to(device)
-
-    return model, tokenizer
-
 
 def prepare_cluster_dict(cluster_path):
     df = pd.read_csv(cluster_path)
@@ -105,7 +32,6 @@ def prepare_cluster_dict(cluster_path):
         cluster_dict[row['Cluster']].append(row['MisconceptionId'])
     return cluster_dict
 
-
 def prepare_misconception_map(misconception_map_path):
     df = pd.read_csv(misconception_map_path, header=0)
     return dict(zip(df['MisconceptionId'], df['MisconceptionName']))
@@ -113,8 +39,7 @@ def prepare_misconception_map(misconception_map_path):
 
 # Define dataset
 class MisconceptionDataset(Dataset):
-    def __init__(self, tokenizer, k, data_path, cluster_path, misconception_map_path):
-        self.tokenizer = tokenizer
+    def __init__(self, k, data_path, cluster_path, misconception_map_path):
         print(f'number of negative examples: {k}')
         self.k = k
 
@@ -142,7 +67,8 @@ class MisconceptionDataset(Dataset):
                 break
 
         if len(related_misconceptions) >= k:
-            return random.sample(related_misconceptions, k)
+            sample = random.sample(related_misconceptions, k)
+            return [self.misconception_map[id] for id in sample]
 
         # If we have fewer than k misconceptions, need to add more from other clusters
 
@@ -150,26 +76,7 @@ class MisconceptionDataset(Dataset):
         possible_misconceptions = [i for i in range(num_misconception) if i != misconception_id]
         additional_samples = random.sample(possible_misconceptions, k - len(related_misconceptions))
         related_misconceptions += additional_samples
-        return related_misconceptions
-
-    def format_prompt(self, question_text, construct_name, subject_name, correct_answer_text, wrong_answer_text):
-
-        prompt = f"""Here is a question about {construct_name} ({subject_name}):
-
-- Question: {question_text}
-- Correct Answer: {correct_answer_text}
-- Wrong Answer: {wrong_answer_text}
-
-Please identify the likely misconception or reasoning error that led the student to choose the wrong answer. Focus only on explaining the misconception.
-"""
-
-        message = [
-            {"role": "system",
-             "content": "You are a proficient Mathematics teacher. Your goal is to identify the likely misconception or reasoning error that led the student to choose the wrong answer."},
-            {"role": "user", "content": prompt.strip()}
-        ]
-
-        return self.tokenizer.apply_chat_template(message, tokenize=False, add_generation_prompt=False)
+        return [self.misconception_map[id] for id in related_misconceptions]
 
     def __len__(self):
         return len(self.question_text)
@@ -181,30 +88,17 @@ Please identify the likely misconception or reasoning error that led the student
         correct = self.correct_answer_text[idx]
         wrong = self.wrong_answer_text[idx]
 
-        prompt = self.format_prompt(question, construct, subject, correct, wrong)
-        prompt_enc = self.tokenizer(prompt, padding="max_length", truncation=True, max_length=max_length,
-                                    return_tensors="pt")
+        anchor = " ".join([construct, subject, question, correct])
 
         positive = self.misconception_name[idx]
-        positive_enc = self.tokenizer(positive, padding="max_length", truncation=True, max_length=max_length,
-                                      return_tensors="pt")
 
         negative_ids = self.get_negative_examples(self.misconception_id[idx], self.k, self.cluster_dict)
-        negative = list(map(lambda x: self.misconception_map.get(x, None), negative_ids))
-        negative_encs = [
-            self.tokenizer(neg, padding="max_length", truncation=True, max_length=max_length, return_tensors="pt") for
-            neg in negative]
 
-        # Return the tokenized inputs and attention masks
         return {
-            'prompt_input_ids': prompt_enc.input_ids.squeeze(0),
-            'prompt_attention_mask': prompt_enc.attention_mask.squeeze(0),
-            'positive_input_ids': positive_enc.input_ids.squeeze(0),
-            'positive_attention_mask': positive_enc.attention_mask.squeeze(0),
-            'negative_input_ids': [neg_enc.input_ids.squeeze(0) for neg_enc in negative_encs],
-            'negative_attention_mask': [neg_enc.attention_mask.squeeze(0) for neg_enc in negative_encs]
+            'anchor': anchor,
+            'positive': positive,
+            'negatives': negative_ids,
         }
-
 
 class TripletLoss(nn.Module):
     def __init__(self, margin=1.0):
@@ -320,26 +214,54 @@ class MultipleNegativeRankingLoss(nn.Module):
 
         # Return mean loss
         return loss.mean()
+    
+def generate_new_positive(anchor_emb, positive_emb, hardest_negative_emb):
+    anchor_embedding_norm = F.normalize(anchor_emb, p=2, dim=1)
+    positive_embedding_norm = F.normalize(positive_emb, p=2, dim=1)
+    negative_embedding_norm = F.normalize(hardest_negative_emb, p=2, dim=1)
+    d1 = torch.sum(anchor_embedding_norm * positive_embedding_norm, dim=1, keepdim=True) 
+    d2 = torch.sum(anchor_embedding_norm * negative_embedding_norm, dim=1, keepdim=True) 
 
+    w1 = d2 / (d1 + d2 + 1e-8)  
+    w2 = d1 / (d1 + d2 + 1e-8)  
+
+    new_positive = w1 * positive_emb + w2 * hardest_negative_emb  
+    return new_positive
+
+def generate_new_negatives(hard_negatives, s):
+    batch_size, num_negatives, embedding_dim = hard_negatives.shape
+    new_negatives = []
+
+    for b in range(batch_size):
+        batch_negatives = hard_negatives[b]
+        batch_new_negatives = []
+
+        for _ in range(s):
+            i, j = torch.randperm(num_negatives)[:2]
+            alpha = torch.rand(1).item() 
+            mixed_negative = alpha * batch_negatives[i] + (1 - alpha) * batch_negatives[j]
+            batch_new_negatives.append(mixed_negative)
+
+        batch_new_negatives = torch.stack(batch_new_negatives) 
+
+        combined_negatives = torch.cat((batch_negatives, batch_new_negatives), dim=0)
+        new_negatives.append(combined_negatives)
+
+    return torch.stack(new_negatives)
 
 # Finetuning script
-def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01,
-          verbose=False, call_back=None):
+def train(model, dataset, device, new_negative_num, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01,
+          verbose=False):
     print(f'Number of training epoch: {epochs}')
     print(f'Batch size: {batch_size}')
     print(f'Learning rate: {lr}')
 
-    for param in model.parameters():
-        if param.dtype == torch.qint8:  # Check if it's quantized
-            print('clamp quantized')
-            param.data = param.data.clamp_(-1.0, 1.0)  # Clamp to a smaller range
-
     # Prepare data
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    optimizer = bnb.optim.AdamW32bit(
+    optimizer = AdamW(
         model.parameters(),
         lr=lr,  # Learning rate
-        weight_decay=weight_decay  # L2 regularization
+        weight_decay=weight_decay
     )
 
     scheduler = LambdaLR(optimizer, lr_lambda=lambda step: max(0.0, 1.0 - step / float(max_steps)))
@@ -361,60 +283,34 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
 
                 if max_steps > 0 and num_steps >= max_steps:
                     break
-                prompt_input_ids = batch['prompt_input_ids'].to(device)
-                prompt_attention_mask = batch['prompt_attention_mask'].to(device)
-                positive_input_ids = batch['positive_input_ids'].to(device)
-                positive_attention_mask = batch['positive_attention_mask'].to(device)
-                negative_input_ids = [neg.to(device) for neg in batch['negative_input_ids']]
-                negative_attention_mask = [neg.to(device) for neg in batch['negative_attention_mask']]
 
-                # Forward pass for prompt, positive, and negative examples
-                if not use_unsloth:
-                    # with autocast(device_type='cuda'):
-                    outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
-                    # prompt_hidden_state = outputs.last_hidden_state[:, -1, :]  # Final hidden state of prompt
+                anchor = batch['anchor']
+                positive = batch['positive']
+                negatives = batch['negatives']
 
-                    prompt_last_hidden_state = outputs.last_hidden_state
-                    prompt_last_non_padding_idx = prompt_attention_mask.sum(dim=1) - 1
-                    prompt_hidden_state = prompt_last_hidden_state[torch.arange(prompt_last_hidden_state.size(0)), prompt_last_non_padding_idx, :]
+                print(f"neg shape: {len(negatives)}, {len(negatives[0])}")
 
-                    outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask)
-                    positive_last_hidden_state = outputs_positive.last_hidden_state
-                    positive_last_non_padding_idx = positive_attention_mask.sum(dim=1) - 1
-                    positive_hidden_state = positive_last_hidden_state[torch.arange(positive_last_hidden_state.size(0)), positive_last_non_padding_idx, :]
+                anchor_embeddings = torch.tensor(model.encode(anchor, device=device, normalize_embeddings=True), device=device)
+                positive_embeddings = torch.tensor(model.encode(positive, normalize_embeddings=True, device=device), device=device)
+        
+                negative_embeddings = torch.tensor([model.encode(negative_row, normalize_embeddings=True, device=device) for negative_row in negatives], device=device)
+                negative_embeddings = negative_embeddings.permute(1, 0, 2)
 
-                    negative_hidden_states = []
-                    for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
-                        outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
-                        neg_hidden_state = outputs_negative.last_hidden_state
-                        neg_last_non_padding_idx = neg_attention_mask.sum(dim=1) - 1
-                        neg_embedding = neg_hidden_state[torch.arange(neg_hidden_state.size(0)), neg_last_non_padding_idx, :] 
-                        negative_hidden_states.append(neg_embedding)
-                    
-                else:
-                    # with autocast(device_type='cuda'):
-                    outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask,
-                                    output_hidden_states=True)
-                    
-                    prompt_last_hidden_state = outputs.hidden_states[-1]
-                    prompt_last_non_padding_idx = prompt_attention_mask.sum(dim=1) - 1
-                    prompt_hidden_state = prompt_last_hidden_state[torch.arange(prompt_last_hidden_state.size(0)), prompt_last_non_padding_idx, :]
+                new_negative_embeddings = generate_new_negatives(negative_embeddings, new_negative_num)
+                print(f'new neg embeddings: {new_negative_embeddings.shape}, first neg: {negative_embeddings[:, 0, :].shape}')
 
-                    outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask,
-                                             output_hidden_states=True)
-                    positive_last_hidden_state = outputs_positive.hidden_states[-1]
-                    positive_last_non_padding_idx = positive_attention_mask.sum(dim=1) - 1
-                    positive_hidden_state = positive_last_hidden_state[torch.arange(positive_last_hidden_state.size(0)), positive_last_non_padding_idx, :]
+                new_positive_embeddings = generate_new_positive(anchor_embeddings, positive_embeddings, negative_embeddings[:, 0, :])
+                print(f'new positive shape: {new_positive_embeddings.shape}')
 
-                    negative_hidden_states = []
-                    for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
-                        outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask)
-                        neg_hidden_state = outputs_negative.hidden_states[-1]
-                        neg_last_non_padding_idx = neg_attention_mask.sum(dim=1) - 1
-                        neg_embedding = neg_hidden_state[torch.arange(neg_hidden_state.size(0)), neg_last_non_padding_idx, :] 
-                        negative_hidden_states.append(neg_embedding)
+                anchor_embeddings.requires_grad_()
+                positive_embeddings.requires_grad_()
+                negative_embeddings.requires_grad_()
+                new_positive_embeddings.requires_grad_()
+                new_negative_embeddings.requires_grad_()
 
-                loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
+                origin_loss = loss_fn(anchor_embeddings, positive_embeddings, new_negative_embeddings)
+                synthetic_loss = loss_fn(anchor_embeddings, new_positive_embeddings, negative_embeddings)
+                loss = origin_loss + synthetic_loss
                 loss.backward()
                 # scaler.scale(loss).backward()
 
@@ -428,12 +324,8 @@ def train(model, dataset, device, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_
 
                 num_steps += 1
                 train_pbar.set_description(f"Epoch {epoch}")
-                train_pbar.set_postfix({"loss": loss.detach().item()})
-                print(f"Epoch {epoch} loss: {loss.detach().item()}")
-
-        if call_back is not None:
-            print(f'saving model at epoch {epoch}')
-            call_back(model, tokenizer)
+                train_pbar.set_postfix({"loss": origin_loss.detach().item()})
+                print(f"Epoch {epoch} loss: {origin_loss.detach().item() / 2}")
 
         if max_steps > 0 and num_steps >= max_steps:
             break
@@ -452,18 +344,6 @@ def get_loss_function(loss_type):
         raise ValueError(f"Unsupported loss_type: {loss_type}")
 
 
-def save_model(model, tokenizer):
-    token = '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'
-    hugging_face_repo = args.hugging_face_repo
-    if not use_unsloth:
-        login(token=token)
-        model.push_to_hub(hugging_face_repo)
-        tokenizer.push_to_hub(hugging_face_repo)
-    else:
-        model.push_to_hub(hugging_face_repo, token=token)
-        tokenizer.push_to_hub(hugging_face_repo, token=token)
-
-
 # Example usage
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fine-tuning script with customizable arguments")
@@ -479,23 +359,24 @@ if __name__ == "__main__":
                         help="number of negative examplles")
     parser.add_argument('--max_steps', type=int, default=-1, help="max number of steps for learning rate scheduler")
     parser.add_argument('--weight_decay', type=float, default=0.01, help="Adam weight decay")
-    parser.add_argument('--model_name', type=str)
-    parser.add_argument('--use_unsloth', action='store_true')
-    parser.add_argument('--hugging_face_repo', type=str)
+    parser.add_argument('--model_name', type=str, default='deberta')
+    parser.add_argument('--new_negative', type=int, default=5)
 
     args = parser.parse_args()
-    use_unsloth = args.use_unsloth
     model_name = args.model_name
+
+    if model_name == "deberta":
+        model = SentenceTransformer('embedding-data/deberta-sentence-transformer')
+    else:
+        model = SentenceTransformer('BAAI/bge-large-en-v1.5')
 
     # Load model and tokenizer
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model, tokenizer = get_model(model_name=model_name, device=device)
 
     # Load dataset
-    dataset = MisconceptionDataset(tokenizer, k=args.k, data_path=data_path, cluster_path=cluster_path,
+    dataset = MisconceptionDataset(k=args.k, data_path=data_path, cluster_path=cluster_path,
                                    misconception_map_path=misconception_map_path)
 
     # Train model
-    train(model, dataset, device=device, loss_fn=get_loss_function(args.loss_type), epochs=args.epoch,
-          batch_size=args.batch_size, lr=args.lr, max_steps=args.max_steps, weight_decay=args.weight_decay,
-          call_back=save_model)
+    train(model, dataset, device=device, new_negative_num=args.new_negative, loss_fn=InfoNCE(negative_mode='paired'), epochs=args.epoch,
+          batch_size=args.batch_size, lr=args.lr, max_steps=args.max_steps, weight_decay=args.weight_decay)
