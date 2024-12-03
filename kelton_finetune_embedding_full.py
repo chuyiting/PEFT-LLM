@@ -68,7 +68,7 @@ class MisconceptionDataset(Dataset):
         print('clear!!')
         anchor_embeddings = self.model.encode(anchors, device=self.device, normalize_embeddings=True)
 
-        similarity_matrix = cosine_similarity(anchor_embeddings.numpy(), misconception_embeddings.numpy())
+        similarity_matrix = cosine_similarity(anchor_embeddings, misconception_embeddings)
         top_k_indices = np.argsort(-similarity_matrix, axis=1)[:, :self.k]
 
         self.precomputed_negatives = [[self.misconception_map[idx] for idx in row] for row in top_k_indices]
