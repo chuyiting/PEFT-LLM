@@ -305,7 +305,7 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16, cluste
 
             similarities = cosine_similarity(input_embeddings.cpu(), misconception_embeddings)
             # Sort the misconceptions based on similarity
-            sorted_misconception_indices = torch.argsort(similarities, dim=1, descending=True).detach().numpy
+            sorted_misconception_indices = torch.argsort(similarities, dim=1, descending=True).detach().numpy()
 
             all_sorted_misconceptions.append(sorted_misconception_indices)
             all_correct_labels.append(labels)
