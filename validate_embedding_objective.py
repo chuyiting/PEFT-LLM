@@ -109,7 +109,7 @@ def get_pretrained(model_name, device):
         max_seq_length = max_seq_length,
         dtype = dtype,
         load_in_4bit = load_in_4bit,
-        force_download=True
+        #force_download=True
     )
 
     tokenizer = get_chat_template(
