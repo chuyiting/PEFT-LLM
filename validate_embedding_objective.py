@@ -325,7 +325,9 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16, cluste
             all_correct_labels.append(correct_labels.numpy())
         
         all_sorted_misconceptions = np.vstack(all_sorted_misconceptions).astype(int)  # Shape (B, num_misconceptions)
+        print(f'misconception shape: {all_sorted_misconceptions.shape}')
         all_correct_labels = np.vstack(all_correct_labels).astype(int)  # Shape (B, 1)
+        print(f'all label shape: {all_correct_labels.shape}')
 
     return mapk(all_correct_labels, all_sorted_misconceptions, cluster_map)
 
