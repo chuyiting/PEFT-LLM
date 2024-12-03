@@ -192,6 +192,7 @@ def calculate_misconception_hidden_states(model, tokenizer, misconception_map):
     misconception_ids = []
 
     for misconception_id, misconception_name in misconception_map.items():
+        print(f'misconception id: {misconception_id}')
         enc = tokenizer(misconception_name, padding="max_length", truncation=True, max_length=max_length, return_tensors="pt")
         input_ids = enc.input_ids
         attention_mask = enc.attention_mask
