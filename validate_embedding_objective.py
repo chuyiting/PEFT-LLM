@@ -294,8 +294,9 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16, cluste
             prompt_input_ids = batch['prompt_input_ids'].to(device)
             prompt_attention_mask = batch['prompt_attention_mask'].to(device)
             labels = batch['label']
+            print(labels)
              # Convert labels to the correct shape
-            labels = torch.tensor([label[0] for label in labels])  # Extract the label from the list and convert
+            labels = torch.tensor(labels).unsqueeze(1)  # Extract the label from the list and convert
             print(f'labels shape: {labels.shape}')
 
             # Get the model's output for the batch
