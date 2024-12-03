@@ -213,33 +213,6 @@ class MisconceptionNameDataset(Dataset):
         }
 
 
-
-# Custom Dataset Class
-class MisconceptionDataset(Dataset):
-    def __init__(self, misconception_map, tokenizer, max_length):
-        self.misconception_map = misconception_map
-        self.tokenizer = tokenizer
-        self.max_length = max_length
-        
-        # Prepare list of misconceptions and their ids for fast access
-        self.misconceptions = list(misconception_map.items())
-
-    def __len__(self):
-        return len(self.misconceptions)
-
-    def __getitem__(self, idx):
-        misconception_id, misconception_name = self.misconceptions[idx]
-        
-        # Tokenize the misconception
-        enc = self.tokenizer(misconception_name, padding="max_length", truncation=True, max_length=self.max_length, return_tensors="pt")
-        
-        # Return the tokenized data
-        return {
-            'misconception_id': misconception_id,
-            'input_ids': enc.input_ids.squeeze(0),
-            'attention_mask': enc.attention_mask.squeeze(0)
-        }
-
 # Function to calculate misconception hidden states in batches
 def calculate_misconception_hidden_states(model, tokenizer, misconception_map, batch_size=16, max_length=512, device='cuda'):
     misconception_hidden_states = []
