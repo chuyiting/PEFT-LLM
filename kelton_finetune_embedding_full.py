@@ -50,7 +50,6 @@ class MisconceptionDataset(Dataset):
         print(f'data path: {data_path}')
         data = pd.read_csv(data_path, header=0)
 
-        self.precompute_negatives()
         self.question_text = data['QuestionText']
         self.construct_name = data['ConstructName']
         self.subject_name = data['SubjectName']
@@ -58,6 +57,7 @@ class MisconceptionDataset(Dataset):
         self.wrong_answer_text = data['WrongAnswerText']
         self.misconception_id = data['MisconceptionId']
         self.misconception_name = data['MisconceptionName']
+        self.precompute_negatives()
 
     def precompute_negatives(self):
         self.model.eval()
@@ -65,6 +65,7 @@ class MisconceptionDataset(Dataset):
         
         anchors = [" ".join([c, s, q, a, w]) for c, s, q, a, w in zip(
             self.construct_name, self.subject_name, self.question_text, self.correct_answer_text, self.wrong_answer_text)]
+        print('clear!!')
         anchor_embeddings = self.model.encode(anchors, device=self.device, normalize_embeddings=True)
 
         similarity_matrix = cosine_similarity(anchor_embeddings.cpu().numpy(), misconception_embeddings.cpu().numpy())
