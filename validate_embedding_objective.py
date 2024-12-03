@@ -63,6 +63,8 @@ def apk(actual, predicted, k=25):
     if len(predicted)>k:
         predicted = predicted[:k]
 
+    print(f'actual: {actual}')
+    print(f'predicted: {predicted}')
     score = 0.0
     num_hits = 0.0
 
@@ -307,7 +309,7 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
         all_sorted_misconceptions = np.vstack(all_sorted_misconceptions).astype(int)  # Shape (B, num_misconceptions)
         all_correct_labels = np.vstack(all_correct_labels).astype(int)  # Shape (B, 1)
 
-    return mapk(all_correct_labels, all_correct_labels)
+    return mapk(all_correct_labels, all_sorted_misconceptions)
 
 # Example usage
 if __name__ == "__main__":
