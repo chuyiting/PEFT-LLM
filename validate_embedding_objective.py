@@ -275,7 +275,6 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
         print(f"Parameter: {name}, Requires Grad: {param.requires_grad}") 
 
     misconception_embeddings, misconception_ids = calculate_misconception_hidden_states(model, tokenizer, misconception_map)
-    print(misconception_ids)
 
     with torch.no_grad():
         for batch in tqdm(dataloader):
@@ -299,6 +298,7 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
             print('check')
             print(similarities[0])
             print(sorted_misconception_indices[0, :5])
+            print(similarities[0, sorted_misconception_indices[0, :5]])
 
             # Map sorted indices to misconception IDs
             sorted_misconception_ids = [[misconception_ids[i] for i in row] for row in sorted_misconception_indices.cpu().numpy()]
