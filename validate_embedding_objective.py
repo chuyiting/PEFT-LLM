@@ -24,7 +24,6 @@ from huggingface_hub import login
 import numpy as np
 
 # unsloth
-use_unsloth=False
 max_seq_length = 512 # Choose any! We auto support RoPE Scaling internally!
 dtype = torch.float16 # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
 load_in_4bit = True  # Use 4bit quantization to reduce memory usage. Can be False.
@@ -262,7 +261,6 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=16)
 
     args = parser.parse_args()
-    use_unsloth = args.use_unsloth
     model_name = args.model_name
 
     # Load model and tokenizer 
