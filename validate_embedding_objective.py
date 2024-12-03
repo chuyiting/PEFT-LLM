@@ -61,7 +61,7 @@ def apk(actual, predicted, k=25, cluster_map=None):
         return 0.0
 
     print(predicted)
-    if len(predicted)>k:
+    if len(predicted) > k:
         predicted = predicted[:k]
 
     print(f'actual {actual}')
@@ -305,15 +305,7 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16, cluste
 
             similarities = cosine_similarity(input_embeddings.cpu(), misconception_embeddings)
             # Sort the misconceptions based on similarity
-            sorted_misconception_indices = torch.argsort(similarities, dim=1, descending=True)
-
-            print('check')
-            for i in range(len(labels)):
-                print(f'label similarity: {similarities[i, int(labels[i])]}')
-                
-                print(labels[i])
-                print(sorted_misconception_indices[i, :5])
-                print(similarities[i, sorted_misconception_indices[i, :5]])
+            sorted_misconception_indices = torch.argsort(similarities, dim=1, descending=True).detach().numpy
 
             all_sorted_misconceptions.append(sorted_misconception_indices)
             all_correct_labels.append(labels)
