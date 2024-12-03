@@ -202,7 +202,7 @@ def calculate_misconception_hidden_states(model, tokenizer, misconception_map):
         last_non_padding_idx = attention_mask.sum(dim=1) - 1
         hidden_state = last_hidden_state[torch.arange(last_hidden_state.size(0)), last_non_padding_idx, :]
 
-        misconception_hidden_states.append(hidden_state)
+        misconception_hidden_states.append(hidden_state.cpu())
         misconception_ids.append(misconception_id)
         # Free up memory
         del outputs  # Delete model outputs
