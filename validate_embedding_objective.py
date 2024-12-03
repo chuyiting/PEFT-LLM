@@ -191,28 +191,30 @@ def calculate_misconception_hidden_states(model, tokenizer, misconception_map):
     misconception_hidden_states = []
     misconception_ids = []
 
-    for misconception_id, misconception_name in misconception_map.items():
-        print(f'misconception id: {misconception_id}')
-        enc = tokenizer(misconception_name, padding="max_length", truncation=True, max_length=max_length, return_tensors="pt")
-        input_ids = enc.input_ids
-        attention_mask = enc.attention_mask
-        outputs = model(input_ids=input_ids, attention_mask=attention_mask, output_hidden_states=True)
-        last_hidden_state = outputs.hidden_states[-1]
+    model.eval()
+    with torch.no_grad():
+        for misconception_id, misconception_name in misconception_map.items():
+            print(f'misconception id: {misconception_id}')
+            enc = tokenizer(misconception_name, padding="max_length", truncation=True, max_length=max_length, return_tensors="pt")
+            input_ids = enc.input_ids
+            attention_mask = enc.attention_mask
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask, output_hidden_states=True)
+            last_hidden_state = outputs.hidden_states[-1]
 
-        last_non_padding_idx = attention_mask.sum(dim=1) - 1
-        hidden_state = last_hidden_state[torch.arange(last_hidden_state.size(0)), last_non_padding_idx, :]
+            last_non_padding_idx = attention_mask.sum(dim=1) - 1
+            hidden_state = last_hidden_state[torch.arange(last_hidden_state.size(0)), last_non_padding_idx, :]
 
-        misconception_hidden_states.append(hidden_state.cpu())
-        misconception_ids.append(misconception_id)
+            misconception_hidden_states.append(hidden_state.cpu())
+            misconception_ids.append(misconception_id)
 
-        # Free up memory
-        del outputs  
-        del last_hidden_state  
-        del hidden_state 
-        del input_ids
-        del enc
-        del attention_mask
-        torch.cuda.empty_cache()  
+            # Free up memory
+            del outputs  
+            del last_hidden_state  
+            del hidden_state 
+            del input_ids
+            del enc
+            del attention_mask
+            torch.cuda.empty_cache()  
        
     return misconception_hidden_states, misconception_ids
 
