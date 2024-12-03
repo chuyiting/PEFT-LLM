@@ -332,7 +332,7 @@ def prepare_cluster_map(cluster_path):
     df = pd.read_csv(cluster_path)
     cluster_map = defaultdict(list)
     for _, row in df.iterrows():
-        cluster_map[row['MisconceptionId']].append(row['ClusterId'])
+        cluster_map[row['MisconceptionId']].append(row['Cluster'])
     return cluster_map
 
 # Example usage
