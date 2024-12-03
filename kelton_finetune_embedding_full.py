@@ -131,7 +131,7 @@ def generate_new_positive(anchor_emb, positive_emb, hardest_negative_emb):
     new_positive = w1 * positive_emb + w2 * hardest_negative_emb  
     return new_positive
 
-def generate_new_negatives(hard_negatives, s):
+def generate_new_negatives(hard_negatives, new_negative_num):
     batch_size, num_negatives, embedding_dim = hard_negatives.shape
     new_negatives = []
 
@@ -139,7 +139,7 @@ def generate_new_negatives(hard_negatives, s):
         batch_negatives = hard_negatives[b]
         batch_new_negatives = []
 
-        for _ in range(s):
+        for _ in range(new_negative_num):
             i, j = torch.randperm(num_negatives)[:2]
             alpha = torch.rand(1).item() 
             mixed_negative = alpha * batch_negatives[i] + (1 - alpha) * batch_negatives[j]
