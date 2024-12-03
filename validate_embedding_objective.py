@@ -113,7 +113,13 @@ def mapk(actual, predicted, k=25, cluster_map=None):
     score : double
             The mean average precision at k over the input lists
     """
-    return np.mean([apk(a,p,k, cluster_map=cluster_map) for a,p in zip(actual, predicted)])
+    scores = []
+    N, _ = actual.shape
+    for i in range(N):
+        print(type(predicted[i]))
+        p = list(predicted[i].values())
+        scores.append(apk(actual[i], p, k, cluster_map=cluster_map))
+    return np.mean(scores)
 
 
 def get_pretrained(model_name, device):
@@ -315,7 +321,7 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16, cluste
         all_correct_labels = np.concatenate(all_correct_labels).astype(int).reshape(-1, 1)  # Shape (B, 1)
         print(f'all label shape: {all_correct_labels.shape}')
 
-    return mapk(all_correct_labels, all_sorted_misconceptions, cluster_map)
+    return mapk(actual=all_correct_labels, predicted=all_sorted_misconceptions, cluster_map=cluster_map)
 
 def prepare_cluster_map(cluster_path):
     df = pd.read_csv(cluster_path)
