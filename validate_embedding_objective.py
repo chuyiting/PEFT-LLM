@@ -256,7 +256,7 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
             last_non_padding_idx = prompt_attention_mask.sum(dim=1) - 1
             input_embeddings = last_hidden_state[torch.arange(last_hidden_state.size(0)), last_non_padding_idx, :]
 
-            similarities = cosine_similarity(input_embeddings, misconception_embeddings)
+            similarities = cosine_similarity(input_embeddings.cpu(), misconception_embeddings)
             # Sort the misconceptions based on similarity
             sorted_misconception_indices = torch.argsort(similarities, dim=1, descending=True)
 
