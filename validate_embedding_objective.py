@@ -191,10 +191,10 @@ def calculate_misconception_hidden_states(model, tokenizer, misconception_map):
     misconception_hidden_states = []
     misconception_ids = []
 
+    print("start encoding misconceptions...")
     model.eval()
     with torch.no_grad():
         for misconception_id, misconception_name in misconception_map.items():
-            print(f'misconception id: {misconception_id}')
             enc = tokenizer(misconception_name, padding="max_length", truncation=True, max_length=max_length, return_tensors="pt")
             input_ids = enc.input_ids
             attention_mask = enc.attention_mask
@@ -215,6 +215,8 @@ def calculate_misconception_hidden_states(model, tokenizer, misconception_map):
             del enc
             del attention_mask
             torch.cuda.empty_cache()  
+    
+    print("finish encoding misconceptions...")
        
     return misconception_hidden_states, misconception_ids
 
@@ -240,30 +242,31 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
 
     misconception_embeddings, misconception_ids = calculate_misconception_hidden_states(model, tokenizer, misconception_map)
 
-    for batch in tqdm(dataloader):
-        prompt_input_ids = batch['prompt_input_ids'].to(device)
-        prompt_attention_mask = batch['prompt_attention_mask'].to(device)
-        label = batch['label'].cpu().numpy()
+    with torch.no_grad():
+        for batch in tqdm(dataloader):
+            prompt_input_ids = batch['prompt_input_ids'].to(device)
+            prompt_attention_mask = batch['prompt_attention_mask'].to(device)
+            label = batch['label'].cpu().numpy()
 
-        # Get the model's output for the batch
-        outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
-        last_hidden_state = outputs.hidden_states[-1]
+            # Get the model's output for the batch
+            outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask, output_hidden_states=True)
+            last_hidden_state = outputs.hidden_states[-1]
+            
+            # Get the last non-padding hidden states for each prompt in the batch
+            last_non_padding_idx = prompt_attention_mask.sum(dim=1) - 1
+            input_embeddings = last_hidden_state[torch.arange(last_hidden_state.size(0)), last_non_padding_idx, :]
+
+            similarities = cosine_similarity(input_embeddings, misconception_embeddings)
+            # Sort the misconceptions based on similarity
+            sorted_misconception_indices = torch.argsort(similarities, dim=1, descending=True)
+
+            # Map sorted indices to misconception IDs
+            sorted_misconception_ids = [[misconception_ids[i] for i in row] for row in sorted_misconception_indices.cpu().numpy()]
+            all_sorted_misconceptions.append(sorted_misconception_ids)
+            all_correct_labels.append(label)
         
-        # Get the last non-padding hidden states for each prompt in the batch
-        last_non_padding_idx = prompt_attention_mask.sum(dim=1) - 1
-        input_embeddings = last_hidden_state[torch.arange(last_hidden_state.size(0)), last_non_padding_idx, :]
-
-        similarities = cosine_similarity(input_embeddings, misconception_embeddings)
-        # Sort the misconceptions based on similarity
-        sorted_misconception_indices = torch.argsort(similarities, dim=1, descending=True)
-
-        # Map sorted indices to misconception IDs
-        sorted_misconception_ids = [[misconception_ids[i] for i in row] for row in sorted_misconception_indices.cpu().numpy()]
-        all_sorted_misconceptions.append(sorted_misconception_ids)
-        all_correct_labels.append(label)
-    
-    all_sorted_misconceptions = np.vstack(all_sorted_misconceptions)  # Shape (B, num_misconceptions)
-    all_correct_labels = np.vstack(all_correct_labels)  # Shape (B, 1)
+        all_sorted_misconceptions = np.vstack(all_sorted_misconceptions)  # Shape (B, num_misconceptions)
+        all_correct_labels = np.vstack(all_correct_labels)  # Shape (B, 1)
 
     return mapk(all_correct_labels, all_correct_labels)
 
