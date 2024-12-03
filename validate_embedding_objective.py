@@ -214,7 +214,7 @@ class MisconceptionNameDataset(Dataset):
 
 
 # Function to calculate misconception hidden states in batches
-def calculate_misconception_hidden_states(model, tokenizer, misconception_map, batch_size=16, max_length=512, device='cuda'):
+def calculate_misconception_hidden_states(model, tokenizer, misconception_map, batch_size=32, max_length=256, device='cuda'):
     misconception_hidden_states = []
     misconception_ids = []
 
