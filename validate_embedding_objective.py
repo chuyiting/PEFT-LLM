@@ -63,8 +63,6 @@ def apk(actual, predicted, k=25):
     if len(predicted)>k:
         predicted = predicted[:k]
 
-    print(f'actual: {actual}')
-    print(f'predicted: {predicted}')
     score = 0.0
     num_hits = 0.0
 
@@ -100,8 +98,6 @@ def mapk(actual, predicted, k=25):
     score : double
             The mean average precision at k over the input lists
     """
-    print(f'actual shape {actual.shape}')
-    print(f'predicted shape: {predicted.shape}')
     return np.mean([apk(a,p,k) for a,p in zip(actual, predicted)])
 
 
@@ -113,6 +109,7 @@ def get_pretrained(model_name, device):
         max_seq_length = max_seq_length,
         dtype = dtype,
         load_in_4bit = load_in_4bit,
+        force_download=True
     )
 
     tokenizer = get_chat_template(
@@ -257,6 +254,8 @@ def calculate_misconception_hidden_states(model, tokenizer, misconception_map, b
 
 def cosine_similarity(input_embeddings, misconception_hidden_states):
     # Normalize both input and misconception embeddings
+    print(f'input embeddings shape: {input_embeddings.shape}')
+    print(f'misconception embeddings shape: {misconception_hidden_states.shape}')
     input_norm = input_embeddings / input_embeddings.norm(dim=-1, keepdim=True)
     misconception_norm = misconception_hidden_states / misconception_hidden_states.norm(dim=-1, keepdim=True)
     
@@ -276,6 +275,7 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
         print(f"Parameter: {name}, Requires Grad: {param.requires_grad}") 
 
     misconception_embeddings, misconception_ids = calculate_misconception_hidden_states(model, tokenizer, misconception_map)
+    print(f'misconception embedding shape: {misconception_embeddings.shape}')
 
     with torch.no_grad():
         for batch in tqdm(dataloader):
@@ -294,6 +294,7 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
             input_embeddings = last_hidden_state[torch.arange(last_hidden_state.size(0)), last_non_padding_idx, :]
 
             similarities = cosine_similarity(input_embeddings.cpu(), misconception_embeddings)
+            print(f'similarity shape: {similarities.shape}')
             # Sort the misconceptions based on similarity
             sorted_misconception_indices = torch.argsort(similarities, dim=1, descending=True)
 
