@@ -253,7 +253,7 @@ def calculate_misconception_hidden_states(model, tokenizer, misconception_map, b
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     with torch.no_grad():
-        for batch in dataloader:
+        for batch in tqdm(dataloader):
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
 
