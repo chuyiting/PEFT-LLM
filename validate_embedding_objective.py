@@ -295,7 +295,12 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16):
             # Map sorted indices to misconception IDs
             sorted_misconception_ids = [[misconception_ids[i] for i in row] for row in sorted_misconception_indices.cpu().numpy()]
             all_sorted_misconceptions.append(sorted_misconception_ids)
-            all_correct_labels.append(label)
+
+            # Ensure labels are a consistent shape
+            correct_labels = torch.tensor(label).unsqueeze(-1).cpu()  # Convert list to tensor and reshape to (B, 1)
+            print(f'correct label shape: {correct_labels.shape}')
+            # Append the correctly shaped labels
+            all_correct_labels.append(correct_labels.numpy())
         
         all_sorted_misconceptions = np.vstack(all_sorted_misconceptions)  # Shape (B, num_misconceptions)
         all_correct_labels = np.vstack(all_correct_labels)  # Shape (B, 1)
