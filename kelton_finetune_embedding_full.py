@@ -298,12 +298,6 @@ def train(model, tokenizer, k, device, new_negative_num, synthetic_weight, loss_
                 positive = batch['positive']
                 negatives = batch['negatives']
 
-                # anchor_embeddings = torch.tensor(model.encode(anchor, normalize_embeddings=True, device=device), device=device)
-                # positive_embeddings = torch.tensor(model.encode(positive, normalize_embeddings=True, device=device), device=device)
-
-                # negative_embeddings = torch.tensor([model.encode(negative_row, normalize_embeddings=True, device=device) for negative_row in negatives], device=device)
-                # negative_embeddings = negative_embeddings.permute(1, 0, 2)
-
                 anchor_inputs = tokenizer(anchor, padding=True, truncation=True, return_tensors="pt").to(device)
                 positive_inputs = tokenizer(positive, padding=True, truncation=True, return_tensors="pt").to(device)
                 negative_inputs = [tokenizer(neg, padding=True, truncation=True, return_tensors="pt").to(device) for neg in negatives]
@@ -316,25 +310,19 @@ def train(model, tokenizer, k, device, new_negative_num, synthetic_weight, loss_
                 ])
                 negative_embeddings = negative_embeddings.permute(1, 0, 2)
 
+                # synthetic data
                 new_negative_embeddings = generate_new_negatives(negative_embeddings, new_negative_num)
                 new_positive_embeddings = generate_new_positive(anchor_embeddings, positive_embeddings, negative_embeddings[:, 0, :])
 
-                # anchor_embeddings.requires_grad_()
-                # positive_embeddings.requires_grad_()
-                # new_positive_embeddings.requires_grad_()
-                # new_negative_embeddings.requires_grad_()
-
+                # merge loss
                 origin_loss = loss_fn(anchor_embeddings, positive_embeddings, new_negative_embeddings)
                 synthetic_loss = loss_fn(anchor_embeddings, new_positive_embeddings, new_negative_embeddings)
                 loss = origin_loss + (synthetic_weight * synthetic_loss)
                 loss.backward()
-                # scaler.scale(loss).backward()
 
                 # Gradient clipping
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
-                # scaler.step(optimizer)
-                # scaler.update()
                 optimizer.step()
                 scheduler.step()
 
