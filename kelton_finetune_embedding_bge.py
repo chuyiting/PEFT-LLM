@@ -1,5 +1,6 @@
 import pandas as pd
 from sentence_transformers import SentenceTransformer
+from transformers import AutoTokenizer, AutoModel
 from info_nce import InfoNCE, info_nce
 # from sklearn.metrics.pairwise import cosine_similarity
 from torch.nn.functional import cosine_similarity
@@ -249,8 +250,13 @@ def generate_new_negatives(hard_negatives, s):
 
     return torch.stack(new_negatives)
 
+def mean_pooling(model_output, attention_mask):
+    token_embeddings = model_output[0] #First element of model_output contains all token embeddings
+    input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+
 # Finetuning script
-def train(model, dataset, device, new_negative_num, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01,
+def train(model, tokenizer, dataset, device, new_negative_num, loss_fn, epochs=3, batch_size=4, lr=5e-5, max_steps=1000, weight_decay=0.01,
           verbose=False):
     print(f'Number of training epoch: {epochs}')
     print(f'Batch size: {batch_size}')
@@ -272,6 +278,9 @@ def train(model, dataset, device, new_negative_num, loss_fn, epochs=3, batch_siz
         for name, param in model.base_model.named_parameters():
             print(f"Parameter: {name}, Requires Grad: {param.requires_grad}")
 
+    for name, param in model.named_parameters():
+        print(f"Parameter: {name}, Requires Grad: {param.requires_grad}")
+
     num_steps = 0
     print('start training...')
     for epoch in tqdm(range(epochs), desc="Epochs"):
@@ -290,11 +299,19 @@ def train(model, dataset, device, new_negative_num, loss_fn, epochs=3, batch_siz
 
                 print(f"neg shape: {len(negatives)}, {len(negatives[0])}")
 
-                anchor_embeddings = torch.tensor(model.encode(anchor, device=device, normalize_embeddings=True), device=device)
-                positive_embeddings = torch.tensor(model.encode(positive, normalize_embeddings=True, device=device), device=device)
-        
-                negative_embeddings = torch.tensor([model.encode(negative_row, normalize_embeddings=True, device=device) for negative_row in negatives], device=device)
+               # Tokenize input
+                anchor_inputs = tokenizer(anchor, padding=True, truncation=True, return_tensors="pt").to(device)
+                positive_inputs = tokenizer(positive, padding=True, truncation=True, return_tensors="pt").to(device)
+                negative_inputs = [tokenizer(neg, padding=True, truncation=True, return_tensors="pt").to(device) for neg in negatives]
+
+                # Forward pass
+                anchor_embeddings = mean_pooling(model(**anchor_inputs), anchor_inputs['attention_mask'])
+                positive_embeddings = mean_pooling(model(**positive_inputs), positive_inputs['attention_mask'])
+                negative_embeddings = torch.stack([
+                    mean_pooling(model(**neg_input), neg_input['attention_mask']) for neg_input in negative_inputs
+                ])
                 negative_embeddings = negative_embeddings.permute(1, 0, 2)
+                print(f"anchor: {anchor_embeddings.shape}, pos: {positive_embeddings.shape}, neg: {negative_embeddings.shape}")
 
                 new_negative_embeddings = generate_new_negatives(negative_embeddings, new_negative_num)
                 print(f'new neg embeddings: {new_negative_embeddings.shape}, first neg: {negative_embeddings[:, 0, :].shape}')
@@ -302,14 +319,15 @@ def train(model, dataset, device, new_negative_num, loss_fn, epochs=3, batch_siz
                 new_positive_embeddings = generate_new_positive(anchor_embeddings, positive_embeddings, negative_embeddings[:, 0, :])
                 print(f'new positive shape: {new_positive_embeddings.shape}')
 
-                anchor_embeddings.requires_grad_()
-                positive_embeddings.requires_grad_()
-                negative_embeddings.requires_grad_()
-                new_positive_embeddings.requires_grad_()
-                new_negative_embeddings.requires_grad_()
+                # anchor_embeddings.requires_grad_()
+                # positive_embeddings.requires_grad_()
+                # negative_embeddings.requires_grad_()
+                # new_positive_embeddings.requires_grad_()
+                # new_negative_embeddings.requires_grad_()
 
                 origin_loss = loss_fn(anchor_embeddings, positive_embeddings, new_negative_embeddings)
                 synthetic_loss = loss_fn(anchor_embeddings, new_positive_embeddings, negative_embeddings)
+                # loss = loss_fn(anchor_embeddings, positive_embeddings, negative_embeddings)
                 loss = origin_loss + synthetic_loss
                 loss.backward()
                 # scaler.scale(loss).backward()
@@ -324,8 +342,8 @@ def train(model, dataset, device, new_negative_num, loss_fn, epochs=3, batch_siz
 
                 num_steps += 1
                 train_pbar.set_description(f"Epoch {epoch}")
-                train_pbar.set_postfix({"loss": origin_loss.detach().item()})
-                print(f"Epoch {epoch} loss: {origin_loss.detach().item() / 2}")
+                train_pbar.set_postfix({"loss": loss.detach().item()})
+                print(f"Epoch {epoch} loss: {loss.detach().item() / 2}")
 
         if max_steps > 0 and num_steps >= max_steps:
             break
@@ -366,17 +384,20 @@ if __name__ == "__main__":
     model_name = args.model_name
 
     if model_name == "deberta":
-        model = SentenceTransformer('embedding-data/deberta-sentence-transformer')
+        # model = SentenceTransformer('embedding-data/deberta-sentence-transformer')
+        tokenizer = AutoTokenizer.from_pretrained('embedding-data/deberta-sentence-transformer')
+        model = AutoModel.from_pretrained('embedding-data/deberta-sentence-transformer')
     else:
         model = SentenceTransformer('BAAI/bge-large-en-v1.5')
 
     # Load model and tokenizer
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
 
     # Load dataset
     dataset = MisconceptionDataset(k=args.k, data_path=data_path, cluster_path=cluster_path,
                                    misconception_map_path=misconception_map_path)
 
     # Train model
-    train(model, dataset, device=device, new_negative_num=args.new_negative, loss_fn=InfoNCE(negative_mode='paired'), epochs=args.epoch,
+    train(model, tokenizer, dataset, device=device, new_negative_num=args.new_negative, loss_fn=InfoNCE(negative_mode='paired'), epochs=args.epoch,
           batch_size=args.batch_size, lr=args.lr, max_steps=args.max_steps, weight_decay=args.weight_decay)

@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from sentence_transformers import SentenceTransformer
+from transformers import AutoTokenizer, AutoModel
 from info_nce import InfoNCE, info_nce
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -118,6 +119,90 @@ class MisconceptionDataset(Dataset):
             'negatives': negative_ids,
         }
     
+class NewMisconceptionDataset(Dataset):
+    def __init__(self, k, data_path, cluster_path, misconception_map_path, model, tokenizer, device):
+        print(f'number of negative examples: {k}')
+        self.k = k
+        self.model = model
+        self.tokenizer = tokenizer
+        self.device = device
+
+        self.cluster_dict = prepare_cluster_dict(cluster_path)
+        self.misconception_map = prepare_misconception_map(misconception_map_path)
+        print(f'data path: {data_path}')
+        data = pd.read_csv(data_path, header=0)
+
+        self.question_text = data['QuestionText']
+        self.construct_name = data['ConstructName']
+        self.subject_name = data['SubjectName']
+        self.correct_answer_text = data['CorrectAnswerText']
+        self.wrong_answer_text = data['WrongAnswerText']
+        self.misconception_id = data['MisconceptionId']
+        self.misconception_name = data['MisconceptionName']
+        self.precompute_negatives()
+
+    def precompute_negatives(self):
+        self.model.eval()
+
+        misconception_inputs = tokenizer(list(self.misconception_map.values()), padding=True, truncation=True, return_tensors="pt").to(device)          
+        misconception_embeddings = mean_pooling(model(**misconception_inputs), misconception_inputs['attention_mask'])
+        
+        anchors = [" ".join([c, s, q, a, w]) for c, s, q, a, w in zip(
+            self.construct_name, self.subject_name, self.question_text, self.correct_answer_text, self.wrong_answer_text)]
+        anchor_inputs = tokenizer(anchors, padding=True, truncation=True, return_tensors="pt").to(device)          
+        anchor_embeddings = mean_pooling(model(**anchor_inputs), anchor_inputs['attention_mask'])
+
+        similarity_matrix = cosine_similarity(anchor_embeddings, misconception_embeddings)
+        top_k_indices = np.argsort(-similarity_matrix, axis=1)[:, :self.k]
+
+        self.precomputed_negatives = [[self.misconception_map[idx] for idx in row] for row in top_k_indices]
+        print("Negative examples precomputed for this epoch.")
+
+    def get_negative_examples(self, misconception_id, k, cluster_dict):
+        related_misconceptions = []
+
+        # First, gather all misconceptions related to the misconception_id from the cluster_dict
+        for _, misconceptions in cluster_dict.items():
+            if misconception_id in misconceptions:
+                # Remove the given misconception_id from the list
+                related_misconceptions = [id for id in misconceptions if id != misconception_id]
+                break
+
+        if len(related_misconceptions) >= k:
+            sample = random.sample(related_misconceptions, k)
+            return [self.misconception_map[id] for id in sample]
+
+        # If we have fewer than k misconceptions, need to add more from other clusters
+
+        num_misconception = len(self.misconception_map)
+        possible_misconceptions = [i for i in range(num_misconception) if i != misconception_id]
+        additional_samples = random.sample(possible_misconceptions, k - len(related_misconceptions))
+        related_misconceptions += additional_samples
+        return [self.misconception_map[id] for id in related_misconceptions]
+
+    def __len__(self):
+        return len(self.question_text)
+
+    def __getitem__(self, idx):
+        question = self.question_text[idx]
+        construct = self.construct_name[idx]
+        subject = self.subject_name[idx]
+        correct = self.correct_answer_text[idx]
+        wrong = self.wrong_answer_text[idx]
+
+        anchor = " ".join([construct, subject, question, correct, wrong])
+
+        positive = self.misconception_name[idx]
+
+        # negative_ids = self.get_negative_examples(self.misconception_id[idx], self.k, self.cluster_dict)
+        negative_ids = self.precomputed_negatives[idx]
+
+        return {
+            'anchor': anchor,
+            'positive': positive,
+            'negatives': negative_ids,
+        }
+
 def generate_new_positive(anchor_emb, positive_emb, hardest_negative_emb):
     anchor_embedding_norm = F.normalize(anchor_emb, p=2, dim=1)
     positive_embedding_norm = F.normalize(positive_emb, p=2, dim=1)
@@ -152,8 +237,13 @@ def generate_new_negatives(hard_negatives, new_negative_num):
 
     return torch.stack(new_negatives)
 
+def mean_pooling(model_output, attention_mask):
+    token_embeddings = model_output[0] #First element of model_output contains all token embeddings
+    input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+
 # Finetuning script
-def train(model, k, device, new_negative_num, synthetic_weight, loss_fn, epochs=4, batch_size=8, lr=3e-5, max_steps=1000, weight_decay=0.01,
+def train(model, tokenizer, k, device, new_negative_num, synthetic_weight, loss_fn, epochs=4, batch_size=8, lr=3e-5, max_steps=1000, weight_decay=0.01,
           model_name='deberta', verbose=False):
     print(f'Number of training epoch: {epochs}')
     print(f'Batch size: {batch_size}')
@@ -177,8 +267,8 @@ def train(model, k, device, new_negative_num, synthetic_weight, loss_fn, epochs=
     print('start training...')
     for epoch in tqdm(range(epochs), desc="Epochs"):
         # Prepare data in each epoch
-        dataset = MisconceptionDataset(k=k, data_path=data_path, cluster_path=cluster_path,
-                                   misconception_map_path=misconception_map_path, model=model, device=device)
+        dataset = NewMisconceptionDataset(k=k, data_path=data_path, cluster_path=cluster_path,
+                                   misconception_map_path=misconception_map_path, model=model, tokenizer=tokenizer, device=device)
         model.train()
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         total_loss = 0
@@ -194,19 +284,31 @@ def train(model, k, device, new_negative_num, synthetic_weight, loss_fn, epochs=
                 positive = batch['positive']
                 negatives = batch['negatives']
 
-                anchor_embeddings = torch.tensor(model.encode(anchor, normalize_embeddings=True, device=device), device=device)
-                positive_embeddings = torch.tensor(model.encode(positive, normalize_embeddings=True, device=device), device=device)
+                # anchor_embeddings = torch.tensor(model.encode(anchor, normalize_embeddings=True, device=device), device=device)
+                # positive_embeddings = torch.tensor(model.encode(positive, normalize_embeddings=True, device=device), device=device)
 
-                negative_embeddings = torch.tensor([model.encode(negative_row, normalize_embeddings=True, device=device) for negative_row in negatives], device=device)
+                # negative_embeddings = torch.tensor([model.encode(negative_row, normalize_embeddings=True, device=device) for negative_row in negatives], device=device)
+                # negative_embeddings = negative_embeddings.permute(1, 0, 2)
+
+                anchor_inputs = tokenizer(anchor, padding=True, truncation=True, return_tensors="pt").to(device)
+                positive_inputs = tokenizer(positive, padding=True, truncation=True, return_tensors="pt").to(device)
+                negative_inputs = [tokenizer(neg, padding=True, truncation=True, return_tensors="pt").to(device) for neg in negatives]
+
+                # Forward pass
+                anchor_embeddings = mean_pooling(model(**anchor_inputs), anchor_inputs['attention_mask'])
+                positive_embeddings = mean_pooling(model(**positive_inputs), positive_inputs['attention_mask'])
+                negative_embeddings = torch.stack([
+                    mean_pooling(model(**neg_input), neg_input['attention_mask']) for neg_input in negative_inputs
+                ])
                 negative_embeddings = negative_embeddings.permute(1, 0, 2)
 
                 new_negative_embeddings = generate_new_negatives(negative_embeddings, new_negative_num)
                 new_positive_embeddings = generate_new_positive(anchor_embeddings, positive_embeddings, negative_embeddings[:, 0, :])
 
-                anchor_embeddings.requires_grad_()
-                positive_embeddings.requires_grad_()
-                new_positive_embeddings.requires_grad_()
-                new_negative_embeddings.requires_grad_()
+                # anchor_embeddings.requires_grad_()
+                # positive_embeddings.requires_grad_()
+                # new_positive_embeddings.requires_grad_()
+                # new_negative_embeddings.requires_grad_()
 
                 origin_loss = loss_fn(anchor_embeddings, positive_embeddings, new_negative_embeddings)
                 synthetic_loss = loss_fn(anchor_embeddings, new_positive_embeddings, new_negative_embeddings)
@@ -215,7 +317,7 @@ def train(model, k, device, new_negative_num, synthetic_weight, loss_fn, epochs=
                 # scaler.scale(loss).backward()
 
                 # Gradient clipping
-                # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
                 # scaler.step(optimizer)
                 # scaler.update()
@@ -255,13 +357,15 @@ if __name__ == "__main__":
     model_name = args.model_name
 
     if model_name == "deberta":
-        model = SentenceTransformer('embedding-data/deberta-sentence-transformer')
+        tokenizer = AutoTokenizer.from_pretrained('embedding-data/deberta-sentence-transformer')
+        model = AutoModel.from_pretrained('embedding-data/deberta-sentence-transformer')
     else:
         model = SentenceTransformer('BAAI/bge-large-en-v1.5')
 
     # Load model and tokenizer
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
 
     # Train model
-    train(model, k=args.k, device=device, new_negative_num=args.new_negative, synthetic_weight=args.synthetic_weight, loss_fn=InfoNCE(negative_mode='paired'), epochs=args.epoch,
+    train(model, tokenizer, k=args.k, device=device, new_negative_num=args.new_negative, synthetic_weight=args.synthetic_weight, loss_fn=InfoNCE(negative_mode='paired'), epochs=args.epoch,
           batch_size=args.batch_size, lr=args.lr, max_steps=args.max_steps, weight_decay=args.weight_decay, model_name=model_name)
