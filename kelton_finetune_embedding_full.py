@@ -145,12 +145,12 @@ class NewMisconceptionDataset(Dataset):
         self.model.eval()
 
         misconception_inputs = tokenizer(list(self.misconception_map.values()), padding=True, truncation=True, return_tensors="pt").to(device)          
-        misconception_embeddings = mean_pooling(model(**misconception_inputs), misconception_inputs['attention_mask'])
+        misconception_embeddings = mean_pooling(self.model(**misconception_inputs), misconception_inputs['attention_mask'])
         
         anchors = [" ".join([c, s, q, a, w]) for c, s, q, a, w in zip(
             self.construct_name, self.subject_name, self.question_text, self.correct_answer_text, self.wrong_answer_text)]
         anchor_inputs = tokenizer(anchors, padding=True, truncation=True, return_tensors="pt").to(device)          
-        anchor_embeddings = mean_pooling(model(**anchor_inputs), anchor_inputs['attention_mask'])
+        anchor_embeddings = mean_pooling(self.model(**anchor_inputs), anchor_inputs['attention_mask'])
 
         similarity_matrix = cosine_similarity(anchor_embeddings, misconception_embeddings)
         top_k_indices = np.argsort(-similarity_matrix, axis=1)[:, :self.k]
