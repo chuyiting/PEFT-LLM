@@ -231,7 +231,6 @@ if __name__ == '__main__':
             for i in range(B):
                 reranked = candidate_ids[i, sorted_misconception_indices[i]]
                 reranked_candidate_ids.append(reranked)
-            reranked_candidate_ids.append(reranked)
 
     reranked_candidate_ids = torch.stack(reranked_candidate_ids, dim=0)
     print(reranked_candidate_ids.shape)

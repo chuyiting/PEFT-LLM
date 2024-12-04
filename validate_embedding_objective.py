@@ -291,7 +291,7 @@ def cosine_similarity(input_embeddings, misconception_hidden_states):
     return torch.mm(input_norm, misconception_norm.t())  # shape: (batch_size, num_misconceptions)
 
 
-def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16, cluster_map=None):
+def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16, cluster_map=None, misconception_batch_size=32):
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     all_sorted_misconceptions = []
@@ -302,7 +302,7 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16, cluste
     for name, param in model.base_model.named_parameters():
         print(f"Parameter: {name}, Requires Grad: {param.requires_grad}") 
 
-    misconception_embeddings, misconception_ids = calculate_misconception_hidden_states(model, tokenizer, misconception_map)
+    misconception_embeddings, misconception_ids = calculate_misconception_hidden_states(model, tokenizer, misconception_map, batch_size=misconception_batch_size)
 
     with torch.no_grad():
         for batch in tqdm(dataloader):
@@ -346,6 +346,7 @@ if __name__ == "__main__":
     # Add arguments
     parser.add_argument('--model_name', type=str)
     parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--misconception_batch_size', type=int, default=32)
 
     args = parser.parse_args()
     model_name = args.model_name
@@ -360,7 +361,7 @@ if __name__ == "__main__":
     cluster_map = prepare_cluster_map(cluster_path)
 
     # Train model
-    map25, rank, num_in_cluster = evaluate(model, tokenizer, misconception_map, dataset, batch_size=args.batch_size, cluster_map=cluster_map)
+    map25, rank, num_in_cluster = evaluate(model, tokenizer, misconception_map, dataset, batch_size=args.batch_size, cluster_map=cluster_map, misconception_batch_size = args.misconception_batch_size)
     print(f'MAP@25 score: {map25}')
     print(f'Average rank among cluster: {rank}')
     print(f'Average number in cluster: {num_in_cluster}')
