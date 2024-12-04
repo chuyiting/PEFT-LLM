@@ -269,11 +269,11 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
                     break
 
                 # Forward pass for prompt, positive, and negative examples
-                gen_config = transformers.GenerationConfig(max_length=2048)
+
                 # anchor
-                outputs = model.generate(**prompt_enc, generation_config=gen_config)
-                # outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
-                # prompt_last_non_padding_idx = prompt_attention_mask.sum(dim=1) - 1
+                outputs = model(input_ids=prompt_enc.input_ids, attention_mask=prompt_enc.attention_masks)
+                prompt_last_non_padding_idx = prompt_enc.attention_masks.sum(dim=1) - 1
+                print(tokenizer.batch_decode(prompt_enc.input_ids[torch.arange(outputs.last_hidden_state.size(0)), prompt_last_non_padding_idx], skip_special_tokens=False))
                 #prompt_hidden_state = outputs.last_hidden_state[torch.arange(outputs.last_hidden_state.size(0)), prompt_last_non_padding_idx, :]
 
                 # positive
