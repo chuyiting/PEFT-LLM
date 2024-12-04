@@ -208,7 +208,7 @@ def train(model, tokenizer, k, device, new_negative_num, synthetic_weight, loss_
     for epoch in tqdm(range(epochs), desc="Epochs"):
         # Prepare data in each epoch
         dataset = MisconceptionDataset(k=k, data_path=data_path, cluster_path=cluster_path,
-                                   misconception_map_path=misconception_map_path, model=model, tokenizer=tokenizer, device=device)
+                                   misconception_map_path=misconception_map_path, model=model, model_name=model_name, tokenizer=tokenizer, device=device)
         model.train()
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         total_loss = 0
