@@ -40,86 +40,6 @@ def prepare_misconception_map(misconception_map_path):
 
 # Define dataset
 class MisconceptionDataset(Dataset):
-    def __init__(self, k, data_path, cluster_path, misconception_map_path, model, device):
-        print(f'number of negative examples: {k}')
-        self.k = k
-        self.model = model
-        self.device = device
-
-        self.cluster_dict = prepare_cluster_dict(cluster_path)
-        self.misconception_map = prepare_misconception_map(misconception_map_path)
-        print(f'data path: {data_path}')
-        data = pd.read_csv(data_path, header=0)
-
-        self.question_text = data['QuestionText']
-        self.construct_name = data['ConstructName']
-        self.subject_name = data['SubjectName']
-        self.correct_answer_text = data['CorrectAnswerText']
-        self.wrong_answer_text = data['WrongAnswerText']
-        self.misconception_id = data['MisconceptionId']
-        self.misconception_name = data['MisconceptionName']
-        self.precompute_negatives()
-
-    def precompute_negatives(self):
-        self.model.eval()
-        misconception_embeddings = self.model.encode(list(self.misconception_map.values()), device=self.device, normalize_embeddings=True)
-        
-        anchors = [" ".join([c, s, q, a, w]) for c, s, q, a, w in zip(
-            self.construct_name, self.subject_name, self.question_text, self.correct_answer_text, self.wrong_answer_text)]
-        anchor_embeddings = self.model.encode(anchors, device=self.device, normalize_embeddings=True)
-
-        similarity_matrix = cosine_similarity(anchor_embeddings, misconception_embeddings)
-        top_k_indices = np.argsort(-similarity_matrix, axis=1)[:, :self.k]
-
-        self.precomputed_negatives = [[self.misconception_map[idx] for idx in row] for row in top_k_indices]
-        print("Negative examples precomputed for this epoch.")
-
-    def get_negative_examples(self, misconception_id, k, cluster_dict):
-        related_misconceptions = []
-
-        # First, gather all misconceptions related to the misconception_id from the cluster_dict
-        for _, misconceptions in cluster_dict.items():
-            if misconception_id in misconceptions:
-                # Remove the given misconception_id from the list
-                related_misconceptions = [id for id in misconceptions if id != misconception_id]
-                break
-
-        if len(related_misconceptions) >= k:
-            sample = random.sample(related_misconceptions, k)
-            return [self.misconception_map[id] for id in sample]
-
-        # If we have fewer than k misconceptions, need to add more from other clusters
-
-        num_misconception = len(self.misconception_map)
-        possible_misconceptions = [i for i in range(num_misconception) if i != misconception_id]
-        additional_samples = random.sample(possible_misconceptions, k - len(related_misconceptions))
-        related_misconceptions += additional_samples
-        return [self.misconception_map[id] for id in related_misconceptions]
-
-    def __len__(self):
-        return len(self.question_text)
-
-    def __getitem__(self, idx):
-        question = self.question_text[idx]
-        construct = self.construct_name[idx]
-        subject = self.subject_name[idx]
-        correct = self.correct_answer_text[idx]
-        wrong = self.wrong_answer_text[idx]
-
-        anchor = " ".join([construct, subject, question, correct, wrong])
-
-        positive = self.misconception_name[idx]
-
-        # negative_ids = self.get_negative_examples(self.misconception_id[idx], self.k, self.cluster_dict)
-        negative_ids = self.precomputed_negatives[idx]
-
-        return {
-            'anchor': anchor,
-            'positive': positive,
-            'negatives': negative_ids,
-        }
-    
-class NewMisconceptionDataset(Dataset):
     def __init__(self, k, data_path, cluster_path, misconception_map_path, model, tokenizer, device):
         print(f'number of negative examples: {k}')
         self.k = k
@@ -281,7 +201,7 @@ def train(model, tokenizer, k, device, new_negative_num, synthetic_weight, loss_
     print('start training...')
     for epoch in tqdm(range(epochs), desc="Epochs"):
         # Prepare data in each epoch
-        dataset = NewMisconceptionDataset(k=k, data_path=data_path, cluster_path=cluster_path,
+        dataset = MisconceptionDataset(k=k, data_path=data_path, cluster_path=cluster_path,
                                    misconception_map_path=misconception_map_path, model=model, tokenizer=tokenizer, device=device)
         model.train()
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
@@ -333,6 +253,10 @@ def train(model, tokenizer, k, device, new_negative_num, synthetic_weight, loss_
 
                 total_loss += origin_loss.detach().item()
 
+                del anchor_inputs, positive_inputs, negative_inputs
+                del anchor_embeddings, positive_embeddings, negative_embeddings
+                torch.cuda.empty_cache()
+
         if max_steps > 0 and num_steps >= max_steps:
             break
         print(f"Epoch {epoch + 1}/{epochs}, Loss: {total_loss / len(dataloader)}")
@@ -362,7 +286,8 @@ if __name__ == "__main__":
         tokenizer = AutoTokenizer.from_pretrained('embedding-data/deberta-sentence-transformer')
         model = AutoModel.from_pretrained('embedding-data/deberta-sentence-transformer')
     else:
-        model = SentenceTransformer('BAAI/bge-large-en-v1.5')
+        tokenizer = AutoTokenizer.from_pretrained('BAAI/bge-large-zh-v1.5')
+        model = AutoModel.from_pretrained('BAAI/bge-large-zh-v1.5')
 
     # Load model and tokenizer
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
