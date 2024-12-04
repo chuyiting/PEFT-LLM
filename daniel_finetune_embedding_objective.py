@@ -261,9 +261,9 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
                                          truncation=True,
                                          return_tensors="pt",
                                          padding_side="left").to(device)
-                print(tokenizer.batch_decode(prompt_enc.input_ids, skip_special_tokens=False))
-                print(tokenizer.batch_decode(positive_enc.input_ids, skip_special_tokens=False))
-                print(tokenizer.batch_decode(negative_enc.input_ids, skip_special_tokens=False))
+                print(tokenizer.batch_decode(prompt_enc.input_ids[:-1], skip_special_tokens=False))
+                print(tokenizer.batch_decode(positive_enc.input_ids[:-1], skip_special_tokens=False))
+                print(tokenizer.batch_decode(negative_enc.input_ids[:-1], skip_special_tokens=False))
 
                 if max_steps > 0 and num_steps >= max_steps:
                     break
