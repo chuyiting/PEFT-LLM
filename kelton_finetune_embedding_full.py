@@ -37,15 +37,15 @@ def prepare_misconception_map(misconception_map_path):
     df = pd.read_csv(misconception_map_path, header=0)
     return dict(zip(df['MisconceptionId'], df['MisconceptionName']))
 
-
 # Define dataset
 class MisconceptionDataset(Dataset):
-    def __init__(self, k, data_path, cluster_path, misconception_map_path, model, tokenizer, device):
+    def __init__(self, k, data_path, cluster_path, misconception_map_path, model, model_name, tokenizer, device):
         print(f'number of negative examples: {k}')
         self.k = k
         self.model = model
         self.tokenizer = tokenizer
         self.device = device
+        self.model_name = model_name
 
         self.cluster_dict = prepare_cluster_dict(cluster_path)
         self.misconception_map = prepare_misconception_map(misconception_map_path)
@@ -66,7 +66,10 @@ class MisconceptionDataset(Dataset):
 
         misconception_inputs = tokenizer(list(self.misconception_map.values()), padding=True, truncation=True, return_tensors="pt").to(device)    
         with torch.no_grad():    
-            misconception_embeddings = mean_pooling(self.model(**misconception_inputs), misconception_inputs['attention_mask'])
+            if self.model_name == 'deberta':
+                misconception_embeddings = mean_pooling(self.model(**misconception_inputs), misconception_inputs['attention_mask'])
+            else:
+                misconception_embeddings = F.normalize(model(**misconception_inputs)[0][:, 0], p=2, dim=1)
 
         anchors = [" ".join([c, s, q, a, w]) for c, s, q, a, w in zip(
             self.construct_name, self.subject_name, self.question_text, self.correct_answer_text, self.wrong_answer_text)]
@@ -78,7 +81,10 @@ class MisconceptionDataset(Dataset):
         for i in range(0, len(anchor_inputs['input_ids']), batch_size):
             batch_inputs = {k: v[i:i + batch_size] for k, v in anchor_inputs.items()}
             with torch.no_grad():
-                batch_embeddings = mean_pooling(self.model(**batch_inputs), batch_inputs['attention_mask'])
+                if self.model_name == 'deberta':
+                    batch_embeddings = mean_pooling(self.model(**batch_inputs), batch_inputs['attention_mask'])
+                else:
+                    batch_embeddings = F.normalize(model(**batch_inputs)[0][:, 0], p=2, dim=1)
             anchor_embeddings.append(batch_embeddings.cpu())
 
         anchor_embeddings = torch.cat(anchor_embeddings, dim=0)
@@ -222,13 +228,22 @@ def train(model, tokenizer, k, device, new_negative_num, synthetic_weight, loss_
                 positive_inputs = tokenizer(positive, padding=True, truncation=True, return_tensors="pt").to(device)
                 negative_inputs = [tokenizer(neg, padding=True, truncation=True, return_tensors="pt").to(device) for neg in negatives]
 
-                # Forward pass
-                anchor_embeddings = mean_pooling(model(**anchor_inputs), anchor_inputs['attention_mask'])
-                positive_embeddings = mean_pooling(model(**positive_inputs), positive_inputs['attention_mask'])
-                negative_embeddings = torch.stack([
-                    mean_pooling(model(**neg_input), neg_input['attention_mask']) for neg_input in negative_inputs
-                ])
-                negative_embeddings = negative_embeddings.permute(1, 0, 2)
+                if model_name == 'deberta':
+                    # Forward pass
+                    anchor_embeddings = mean_pooling(model(**anchor_inputs), anchor_inputs['attention_mask'])
+                    positive_embeddings = mean_pooling(model(**positive_inputs), positive_inputs['attention_mask'])
+                    negative_embeddings = torch.stack([
+                        mean_pooling(model(**neg_input), neg_input['attention_mask']) for neg_input in negative_inputs
+                    ])
+                    negative_embeddings = negative_embeddings.permute(1, 0, 2)
+                else:
+                    # Forward pass
+                    anchor_embeddings = F.normalize(model(**anchor_inputs)[0][:, 0], p=2, dim=1)
+                    positive_embeddings = F.normalize(model(**positive_inputs)[0][:, 0], p=2, dim=1)
+                    negative_embeddings = torch.stack([
+                        F.normalize(model(**neg_input)[0][:, 0], p=2, dim=1) for neg_input in negative_inputs
+                    ])
+                    negative_embeddings = negative_embeddings.permute(1, 0, 2)
 
                 # synthetic data
                 new_negative_embeddings = generate_new_negatives(negative_embeddings, new_negative_num)
