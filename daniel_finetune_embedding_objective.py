@@ -138,9 +138,9 @@ Please identify the likely misconception or reasoning error that led the student
         wrong = self.wrong_answer_text[idx]
 
         prompt = self.format_prompt(question, construct, subject, correct, wrong)
-        positive = self.misconception_name[idx]
+        positive = self.misconception_name[idx] + "<|im_end|>"
         negative_ids = self.get_negative_examples(self.misconception_id[idx], self.k, self.cluster_dict)
-        negative = list(map(lambda x: self.misconception_map.get(x, None), negative_ids))
+        negative = list(map(lambda x: self.misconception_map.get(x, None) + "<|im_end|>", negative_ids))
 
         #prompt_enc = self.tokenizer(prompt, padding="max_length", truncation=True, max_length=max_length,
         #                            return_tensors="pt")
