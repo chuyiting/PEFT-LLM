@@ -117,8 +117,7 @@ class MisconceptionDataset(Dataset):
 - Correct Answer: {correct_answer_text}
 - Wrong Answer: {wrong_answer_text}
 
-Please identify the likely misconception or reasoning error that led the student to choose the wrong answer. Focus only on explaining the misconception.
-"""
+Please identify the likely misconception or reasoning error that led the student to choose the wrong answer. Focus only on explaining the misconception."""
 
         message = [
             {"role": "system",
@@ -263,6 +262,8 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
                                          return_tensors="pt",
                                          padding_side="left").to(device)
                 print(tokenizer.batch_decode(prompt_enc.input_ids, skip_special_tokens=False))
+                print(tokenizer.batch_decode(positive_enc.input_ids, skip_special_tokens=False))
+                print(tokenizer.batch_decode(negative_enc.input_ids, skip_special_tokens=False))
 
                 if max_steps > 0 and num_steps >= max_steps:
                     break
