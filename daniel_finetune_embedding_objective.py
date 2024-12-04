@@ -251,19 +251,16 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
 
                 prompt_enc = tokenizer(prompt, padding="longest",
                                        truncation=True,
-                                       return_tensors="pt",
-                                       ).to(device)
+                                       return_tensors="pt").to(device)
                 positive_enc = tokenizer(positive, padding="longest",
                                          truncation=True,
-                                         return_tensors="pt",
-                                         ).to(device)
+                                         return_tensors="pt").to(device)
                 negative_enc = tokenizer(negative, padding="longest",
                                          truncation=True,
-                                         return_tensors="pt",
-                                         ).to(device)
-                print(tokenizer.batch_decode(prompt_enc.input_ids, skip_special_tokens=False))
-                print(tokenizer.batch_decode(positive_enc.input_ids, skip_special_tokens=False))
-                print(tokenizer.batch_decode(negative_enc.input_ids, skip_special_tokens=False))
+                                         return_tensors="pt").to(device)
+                # print(tokenizer.batch_decode(prompt_enc.input_ids, skip_special_tokens=False))
+                # print(tokenizer.batch_decode(positive_enc.input_ids, skip_special_tokens=False))
+                # print(tokenizer.batch_decode(negative_enc.input_ids, skip_special_tokens=False))
 
                 if max_steps > 0 and num_steps >= max_steps:
                     break
@@ -273,28 +270,17 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
                 # anchor
                 outputs = model(input_ids=prompt_enc.input_ids, attention_mask=prompt_enc.attention_mask)
                 prompt_last_non_padding_idx = prompt_enc.attention_mask.sum(dim=1) - 2
-                print(tokenizer.batch_decode(prompt_enc.input_ids[torch.arange(outputs.last_hidden_state.size(0)), prompt_last_non_padding_idx], skip_special_tokens=False))
-                # prompt_hidden_state = outputs.last_hidden_state[torch.arange(outputs.last_hidden_state.size(0)), prompt_last_non_padding_idx, :]
+                prompt_hidden_state = outputs.last_hidden_state[torch.arange(outputs.last_hidden_state.size(0)), prompt_last_non_padding_idx, :]
 
                 # positive
                 outputs_positive = model(input_ids=positive_enc.input_ids, attention_mask=positive_enc.attention_mask)
                 positive_last_non_padding_idx = positive_enc.attention_mask.sum(dim=1) - 1
-                print(tokenizer.batch_decode(
-                    positive_enc.input_ids[torch.arange(outputs_positive.last_hidden_state.size(0)), positive_last_non_padding_idx],
-                    skip_special_tokens=False))
                 positive_hidden_state = outputs_positive.last_hidden_state[torch.arange(outputs_positive.last_hidden_state.size(0)), positive_last_non_padding_idx, :]
 
                 # negative
-
                 outputs_negative = model(input_ids=negative_enc.input_ids, attention_mask=negative_enc.attention_mask)
                 negative_last_non_padding_idx = negative_enc.attention_mask.sum(dim=1) - 1
-                print(tokenizer.batch_decode(
-                    negative_enc.input_ids[
-                        torch.arange(outputs_negative.last_hidden_state.size(0)), negative_last_non_padding_idx],
-                    skip_special_tokens=False))
                 negative_hidden_states = outputs_negative.last_hidden_state[torch.arange(outputs_negative.last_hidden_state.size(0)), negative_last_non_padding_idx, :]
-
-
 
                 loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
                 loss.backward()
