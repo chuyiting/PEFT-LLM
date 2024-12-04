@@ -158,7 +158,11 @@ def cosine_similarity(input_embeddings, misconception_hidden_states):
     misconception_norm = misconception_hidden_states / misconception_hidden_states.norm(dim=-1, keepdim=True)
     
     # Compute cosine similarity using the dot product
-    return torch.mm(input_norm, misconception_norm.transpose(-1,-2))  # shape: (batch_size, num_misconceptions)
+    similarity = torch.bmm(misconception_norm, input_norm.unsqueeze(2))  # shape: (B, num_misconceptions, 1)
+    
+    # Squeeze to remove the last singleton dimension and get shape (B, num_misconceptions)
+    similarity = similarity.squeeze(2)  # 
+    return similarity
 
 
 
