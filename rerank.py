@@ -214,7 +214,6 @@ if __name__ == '__main__':
 
             prompt_input_ids = batch['prompt_input_ids'].to(device)
             prompt_attention_mask = batch['prompt_attention_mask'].to(device)
-            
             candidate_embeddings = batch['candidate_embeddings']
 
             # prompt
@@ -228,16 +227,14 @@ if __name__ == '__main__':
             # candidate
             B, _ = prompt_hidden_state.shape 
             similarities = cosine_similarity(prompt_hidden_state, candidate_embeddings)
-            print(f'similarity shape: {similarities.shape}')
             sorted_misconception_indices = torch.argsort(similarities, dim=1, descending=True).detach().numpy()
             for i in range(B):
                 reranked = candidate_ids[i, sorted_misconception_indices[i]]
                 reranked_candidate_ids.append(reranked)
             reranked_candidate_ids.append(reranked)
-            print(f'rerank shape: {reranked.shape}')
 
-    reranked_candidate_ids = torch.cat(reranked_candidate_ids, dim=0)
-    print(f'final shape: {reranked_candidate_ids.shape}')
+    reranked_candidate_ids = torch.stack(reranked_candidate_ids, dim=0)
+
             
             
 
