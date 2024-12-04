@@ -64,7 +64,7 @@ class MisconceptionDataset(Dataset):
     def precompute_negatives(self):
         self.model.eval()
 
-        misconception_inputs = tokenizer(list(self.misconception_map.values()), padding=True, truncation=True, return_tensors="pt").to(device)    
+        misconception_inputs = self.tokenizer(list(self.misconception_map.values()), padding=True, truncation=True, return_tensors="pt").to(device)    
         with torch.no_grad():    
             if self.model_name == 'deberta':
                 misconception_embeddings = mean_pooling(self.model(**misconception_inputs), misconception_inputs['attention_mask'])
@@ -73,7 +73,7 @@ class MisconceptionDataset(Dataset):
 
         anchors = [" ".join([c, s, q, a, w]) for c, s, q, a, w in zip(
             self.construct_name, self.subject_name, self.question_text, self.correct_answer_text, self.wrong_answer_text)]
-        anchor_inputs = tokenizer(anchors, padding=True, truncation=True, return_tensors="pt").to(device)      
+        anchor_inputs = self.tokenizer(anchors, padding=True, truncation=True, return_tensors="pt").to(device)      
 
         batch_size = 32
         anchor_embeddings = []
@@ -84,7 +84,7 @@ class MisconceptionDataset(Dataset):
                 if self.model_name == 'deberta':
                     batch_embeddings = mean_pooling(self.model(**batch_inputs), batch_inputs['attention_mask'])
                 else:
-                    batch_embeddings = F.normalize(model(**batch_inputs)[0][:, 0], p=2, dim=1)
+                    batch_embeddings = F.normalize(self.model(**batch_inputs)[0][:, 0], p=2, dim=1)
             anchor_embeddings.append(batch_embeddings.cpu())
 
         anchor_embeddings = torch.cat(anchor_embeddings, dim=0)
