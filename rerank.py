@@ -234,6 +234,7 @@ if __name__ == '__main__':
             reranked_candidate_ids.append(reranked)
 
     reranked_candidate_ids = torch.stack(reranked_candidate_ids, dim=0)
+    print(reranked_candidate_ids.shape)
 
             
             
