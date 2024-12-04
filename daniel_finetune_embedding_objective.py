@@ -40,7 +40,7 @@ def get_model(model_name, device, use_lora=True):
     if use_lora:
         # Apply LoRA configuration
         lora_config = LoraConfig(
-            r=8,
+            r=64,
             lora_alpha=16,
             lora_dropout=0.1,
             target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
