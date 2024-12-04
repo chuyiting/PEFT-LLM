@@ -6,7 +6,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoModel
 from peft import LoraConfig, get_peft_model
 from torch.optim.lr_scheduler import LambdaLR
 from torch.amp import autocast, GradScaler
@@ -18,19 +18,10 @@ import random
 import argparse
 import os
 
-from unsloth import FastLanguageModel, is_bfloat16_supported
-from unsloth.chat_templates import get_chat_template
 from huggingface_hub import login
 
 from transformers import BitsAndBytesConfig
 
-# unsloth
-use_unsloth = False
-max_seq_length = 512  # Choose any! We auto support RoPE Scaling internally!
-dtype = torch.float16  # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
-load_in_4bit = True  # Use 4bit quantization to reduce memory usage. Can be False.
-
-model_name = 'unsloth/Qwen2.5-32B-bnb-4bit'  # unsloth/
 data_path = os.path.join(os.getcwd(), 'data/full_finetune_data.csv')
 cluster_path = os.path.join(os.getcwd(), 'data/misconception_cluster.csv')
 misconception_map_path = os.path.join(os.getcwd(), 'data/misconception_mapping.csv')
@@ -42,43 +33,8 @@ def get_model(model_name, device, use_lora=True):
     torch.cuda.empty_cache()
     print(f'use model: {model_name}')
 
-    if use_unsloth:
-        print('use unsloth')
-        model, tokenizer = FastLanguageModel.from_pretrained(
-            model_name=model_name,
-            max_seq_length=max_seq_length,
-            dtype=dtype,
-            load_in_4bit=load_in_4bit,
-        )
-
-        tokenizer = get_chat_template(
-            tokenizer,
-            chat_template="alpaca",  # Supports zephyr, chatml, mistral, llama, alpaca, vicuna, vicuna_old, unsloth
-            map_eos_token=True,  # Maps <|im_end|> to </s> instead
-        )
-
-        if use_lora:
-            model = FastLanguageModel.get_peft_model(
-                model,
-                r=8,  # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
-                target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
-                                "gate_proj", "up_proj", "down_proj", ],
-                lora_alpha=16,
-                lora_dropout=0,  # Supports any, but = 0 is optimized
-                bias="none",  # Supports any, but = "none" is optimized
-                # [NEW] "unsloth" uses 30% less VRAM, fits 2x larger batch sizes!
-                use_gradient_checkpointing="unsloth",  # True or "unsloth" for very long context
-                random_state=3407,
-                use_rslora=False,  # We support rank stabilized LoRA
-                loftq_config=None,  # And LoftQ
-                inference_mode=False,
-            )
-        model.to(torch.float16)
-        return model, tokenizer
-
-    #quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16)
-    #model = AutoModel.from_pretrained(model_name, trust_remote_code=True, quantization_config=quantization_config)
-    model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=True)
+    quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16)
+    model = AutoModel.from_pretrained(model_name, trust_remote_code=True, quantization_config=quantization_config)
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 
     if use_lora:
@@ -89,9 +45,7 @@ def get_model(model_name, device, use_lora=True):
             lora_dropout=0.1,
             target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
                             "gate_proj", "up_proj", "down_proj"],
-            #target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
-            bias='none'#,
-            #init_lora_weights="pissa"
+            bias='none'
         )
 
         model = get_peft_model(model, lora_config)
@@ -308,51 +262,32 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
                                          truncation=True,
                                          return_tensors="pt",
                                          padding_side="left").to(device)
+                print(tokenizer.batch_decode(prompt_enc.input_ids, skip_special_tokens=False))
 
                 if max_steps > 0 and num_steps >= max_steps:
                     break
 
                 # Forward pass for prompt, positive, and negative examples
-                if not use_unsloth:
-                    gen_config = transformers.GenerationConfig(max_length=2048)
-                    # anchor
-                    outputs = model.generate(**prompt_enc, generation_config=gen_config)
-                    print(tokenizer.batch_decode(outputs, skip_special_tokens=True))
-                    # outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
-                    # prompt_last_non_padding_idx = prompt_attention_mask.sum(dim=1) - 1
-                    #prompt_hidden_state = outputs.last_hidden_state[torch.arange(outputs.last_hidden_state.size(0)), prompt_last_non_padding_idx, :]
+                gen_config = transformers.GenerationConfig(max_length=2048)
+                # anchor
+                outputs = model.generate(**prompt_enc, generation_config=gen_config)
+                # outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask)
+                # prompt_last_non_padding_idx = prompt_attention_mask.sum(dim=1) - 1
+                #prompt_hidden_state = outputs.last_hidden_state[torch.arange(outputs.last_hidden_state.size(0)), prompt_last_non_padding_idx, :]
 
-                    # positive
-                    outputs_positive = model.generate(**positive_enc, generation_config=gen_config)
-                    # outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask)
-                    # positive_last_non_padding_idx = positive_attention_mask.sum(dim=1) - 1
-                    # positive_hidden_state = outputs_positive.last_hidden_state[torch.arange(outputs_positive.last_hidden_state.size(0)), positive_last_non_padding_idx, :]
+                # positive
+                outputs_positive = model.generate(**positive_enc, generation_config=gen_config)
+                # outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask)
+                # positive_last_non_padding_idx = positive_attention_mask.sum(dim=1) - 1
+                # positive_hidden_state = outputs_positive.last_hidden_state[torch.arange(outputs_positive.last_hidden_state.size(0)), positive_last_non_padding_idx, :]
 
-                    # negative
-                    outputs_negative = model.generate(**negative_enc, generation_config=gen_config)
-                    # outputs_negative = model(input_ids=negative_input_ids, attention_mask=negative_attention_mask)
-                    # negative_last_non_padding_idx = negative_attention_mask.sum(dim=1) - 1
-                    # negative_hidden_states = outputs_negative.last_hidden_state[torch.arange(outputs_negative.last_hidden_state.size(0)), negative_last_non_padding_idx, :]
+                # negative
+                outputs_negative = model.generate(**negative_enc, generation_config=gen_config)
+                # outputs_negative = model(input_ids=negative_input_ids, attention_mask=negative_attention_mask)
+                # negative_last_non_padding_idx = negative_attention_mask.sum(dim=1) - 1
+                # negative_hidden_states = outputs_negative.last_hidden_state[torch.arange(outputs_negative.last_hidden_state.size(0)), negative_last_non_padding_idx, :]
 
-                else:
-                    # with autocast(device_type='cuda'):
-                    outputs = model(input_ids=prompt_input_ids, attention_mask=prompt_attention_mask,
-                                    output_hidden_states=True)
-                    prompt_hidden_state = outputs.hidden_states[-1][:, -1,
-                                          :]  # Final hidden state of the last token of prompt
 
-                    outputs_positive = model(input_ids=positive_input_ids, attention_mask=positive_attention_mask,
-                                             output_hidden_states=True)
-                    positive_hidden_state = outputs_positive.hidden_states[-1][:, -1,
-                                            :]  # Final hidden state of the last token of positive misconception
-
-                    negative_hidden_states = []
-
-                    for neg_input_id, neg_attention_mask in zip(negative_input_ids, negative_attention_mask):
-                        outputs_negative = model(input_ids=neg_input_id, attention_mask=neg_attention_mask,
-                                                 output_hidden_states=True)
-                        negative_hidden_states.append(outputs_negative.hidden_states[-1][:, -1,
-                                                      :])  # Final hidden state of the last token of negative misconceptions
 
                 loss = loss_fn(prompt_hidden_state, positive_hidden_state, negative_hidden_states)
                 loss.backward()
@@ -379,29 +314,12 @@ def train(model, tokenizer, dataset, device, loss_fn, epochs=3, batch_size=4, lr
             break
         print(f"Epoch {epoch + 1}/{epochs}, Loss: {total_loss / len(dataloader)}")
 
-
-def get_loss_function(loss_type):
-    """Returns the appropriate loss function based on the `loss_type`."""
-    if loss_type == "multiple_negative_ranking":
-        print('use multiple negative ranking loss')
-        return MultipleNegativeRankingLoss()
-    elif loss_type == "triplet":
-        print('use triplet loss')
-        return TripletLoss()
-    else:
-        raise ValueError(f"Unsupported loss_type: {loss_type}")
-
-
 def save_model(model, tokenizer):
-    token = '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'
-    hugging_face_repo = args.hugging_face_repo
-    if not use_unsloth:
-        login(token=token)
-        model.push_to_hub(hugging_face_repo)
-        tokenizer.push_to_hub(hugging_face_repo)
-    else:
-        model.push_to_hub(hugging_face_repo, token=token)
-        tokenizer.push_to_hub(hugging_face_repo, token=token)
+    token = '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'
+    hugging_face_repo = "d0703887/Qwen2.5-Math-7B-Lora"
+    login(token=token)
+    model.push_to_hub(hugging_face_repo)
+    tokenizer.push_to_hub(hugging_face_repo)
 
 
 # Example usage
@@ -412,19 +330,14 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=4, help="Batch size for training (default: 4)")
     parser.add_argument('--lr', type=float, default=1e-5, help="Learning rate (default: 1e-5)")
     parser.add_argument('--epoch', type=int, default=4, help="Number of training epochs (default: 4)")
-    parser.add_argument('--loss_type', type=str, default='multiple_negative_ranking',
-                        choices=['multiple_negative_ranking', 'triplet', 'info_nce'],
-                        help="Type of loss function to use (default: triplet)")
     parser.add_argument('--k', type=int, default=25,
                         help="number of negative examplles")
     parser.add_argument('--max_steps', type=int, default=-1, help="max number of steps for learning rate scheduler")
     parser.add_argument('--weight_decay', type=float, default=0.01, help="Adam weight decay")
     parser.add_argument('--model_name', type=str)
-    parser.add_argument('--use_unsloth', action='store_true')
     parser.add_argument('--hugging_face_repo', type=str)
 
     args = parser.parse_args()
-    use_unsloth = args.use_unsloth
     model_name = args.model_name
 
     # Load model and tokenizer
@@ -436,7 +349,7 @@ if __name__ == "__main__":
                                    misconception_map_path=misconception_map_path)
 
     # Train model
-    train(model, tokenizer, dataset, device=device, loss_fn=get_loss_function(args.loss_type), epochs=args.epoch,
+    train(model, tokenizer, dataset, device=device, loss_fn=MultipleNegativeRankingLoss(), epochs=args.epoch,
           batch_size=args.batch_size, lr=args.lr, max_steps=args.max_steps, weight_decay=args.weight_decay,
           call_back=save_model)
 
