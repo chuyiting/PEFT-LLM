@@ -201,10 +201,6 @@ if __name__ == '__main__':
     dataset = MisconceptionDataset(df, misconception_df, tokenizer, misconception_embeddings)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
-
-    misconception_map_path = os.path.join(os.getcwd(), 'data/misconception_mapping.csv')
-    misconception_map = prepare_misconception_map(misconception_map_path)
-
     reranked_candidate_ids = []
     with torch.no_grad():
         for batch in tqdm(dataloader):
