@@ -1,0 +1,149 @@
+,QuestionId_Answer,ConstructName,SubjectName,QuestionText,CorrectAnswer,IncorrectAnswer,Misconception,top_100
+0,1869_B,Use the order of operations to carry out calculations involving powers,BIDMAS,"\[
+3 \times 2+4-5
+\]
+Where do the brackets need to go to make the answer equal \( 13 \) ?",\( 3 \times(2+4)-5 \),\( 3 \times 2+(4-5) \),"The student's misconception likely stems from a misunderstanding of how the placement of brackets can alter the order of operations and the resulting value of the expression. 
+
+In the correct answer, \( 3 \times (2+4) - 5 \), the brackets around \( 2+4 \) ensure that addition is performed first, leading to:
+\[
+3 \times 6 - 5 = 18 - 5 = 13
+\]
+This correctly achieves the desired result of 13.
+
+However, in the wrong answer, \( 3 \times 2 + (4 - 5) \), the brackets are placed around \( 4 - 5 \), which results in:
+\[
+3 \times 2 + (-1) = 6 - 1 = 5
+\]
+This does not yield the desired result of 13.
+
+The misconception here is that the student may not fully appreciate how the placement of brackets can change the sequence of operations and the final value. The student might have incorrectly assumed that placing brackets around any part of the expression would lead to the desired result without considering the specific impact on the order of operations. This misunderstanding highlights the importance of brackets in determining the correct sequence of operations and the resulting value of the expression.",315 1345 2488 1392 2586 2306 1054 1005 2532 1700 77 1507 1516 1084 706 1316 871 1338 74 256 1941 483 2518 328 1672 1963 2087 366 1119 2181 2135 1697 452 987 1336 528 1999 137 224 102 373 158 1680 638 511 536 583 617 186 15 557 1722 1708 190 1387 1444 2288 2140 1496 969 2051 1690 2022 1227 655 1247 1936 981 1191 1929 1563 1172 1828 462 222 2131 602 1510 1911 2383 1354 533 2556 220 1534 487 1866 38 25 1170 2237 2517 661 2449 1765 1908 911 267 621 906
+1,1869_C,Use the order of operations to carry out calculations involving powers,BIDMAS,"\[
+3 \times 2+4-5
+\]
+Where do the brackets need to go to make the answer equal \( 13 \) ?",\( 3 \times(2+4)-5 \),\( 3 \times(2+4-5) \),"The student's misconception likely stems from a misunderstanding of how brackets affect the order of operations and how they can change the result of the expression. 
+
+In the correct answer, \( 3 \times (2+4) - 5 \), the brackets around \( 2+4 \) ensure that addition is performed first, resulting in \( 3 \times 6 - 5 \), which simplifies to \( 18 - 5 = 13 \).
+
+However, in the wrong answer, \( 3 \times (2+4-5) \), the student has placed the brackets around the entire expression \( 2+4-5 \). This leads to the calculation \( 3 \times (1) \) because \( 2+4-5 = 1 \). The result is \( 3 \times 1 = 3 \), which is not equal to 13.
+
+The misconception here is that the student did not recognize that the placement of brackets can significantly alter the order in which operations are performed and, consequently, the final result. The student may have thought that placing brackets around the entire expression would somehow still lead to the desired result, without fully considering the impact of the operations inside the brackets.",2488 315 1345 1084 1392 2586 373 2532 77 969 2306 871 2518 1338 1054 220 256 2087 1516 706 74 452 366 1672 1507 1005 1700 483 1444 602 1119 328 1496 2383 528 1941 158 1999 487 1697 1316 1387 462 1228 2384 15 102 1722 1911 2181 2131 314 1708 137 2140 557 655 911 657 1963 617 1676 1936 2098 1908 536 2527 1856 987 583 224 25 1004 1775 2305 985 1690 621 168 1191 1227 2135 837 577 1443 553 1287 2439 1929 974 190 2419 729 2408 511 171 1439 2364 1862 222
+2,1869_D,Use the order of operations to carry out calculations involving powers,BIDMAS,"\[
+3 \times 2+4-5
+\]
+Where do the brackets need to go to make the answer equal \( 13 \) ?",\( 3 \times(2+4)-5 \),Does not need brackets,"The student's misconception likely stems from a misunderstanding of the order of operations (BIDMAS/BODMAS: Brackets, Indices/Order, Division and Multiplication, Addition and Subtraction) and the necessity of using brackets to alter the default order of operations.
+
+In the expression \(3 \times 2 + 4 - 5\), without any brackets, the order of operations dictates that multiplication is performed before addition and subtraction. Therefore, the expression is evaluated as follows:
+\[
+3 \times 2 + 4 - 5 = 6 + 4 - 5 = 10 - 5 = 5
+\]
+
+The student might have thought that the expression already yields the desired result of 13 without the need for brackets, or they might not fully appreciate that brackets are necessary to change the order in which operations are performed. In this case, placing brackets around \(2 + 4\) ensures that the addition is performed first, altering the sequence of operations:
+\[
+3 \times (2 + 4) - 5 = 3 \times 6 - 5 = 18 - 5 = 13
+\]
+
+Thus, the misconception is that the student did not recognize the need for brackets to enforce a specific order of operations that would yield the desired result.",2532 706 77 1392 1507 1672 1005 2586 1345 871 315 328 1084 1516 1941 15 2488 2518 1054 1856 158 987 256 1416 2140 1963 1563 1227 2087 1936 1119 1319 638 1999 278 1338 297 651 657 102 2288 1866 1862 1734 2504 2051 1864 2306 1890 1225 2131 1680 373 723 190 655 969 2441 347 536 621 462 1372 1183 533 1072 366 1316 2533 1284 1679 1670 220 1482 1170 923 2527 483 2383 1562 659 1024 1026 1496 487 617 1299 656 2451 2438 2316 2445 1116 137 1534 502 2323 261 2175 314
+3,1870_A,Simplify an algebraic fraction by factorising the numerator,Simplifying Algebraic Fractions,"Simplify the following, if possible: \( \frac{m^{2}+2 m-3}{m-3} \)",Does not simplify,\( m+1 \),"The student's misconception likely stems from an incorrect approach to factorizing the numerator or a misunderstanding of how to simplify algebraic fractions. Here's a detailed analysis of the likely misconception:
+
+1. **Incorrect Factorization**: The student might have incorrectly factorized the numerator \( m^2 + 2m - 3 \). The correct factorization of the numerator is \( (m + 3)(m - 1) \). However, the student might have incorrectly factorized it as \( (m + 1)(m - 3) \). This would lead them to believe that the fraction can be simplified by canceling out the common factor \( (m - 3) \) in the numerator and the denominator.
+
+2. **Cancelling Terms Incorrectly**: Even if the student correctly factorizes the numerator as \( (m + 3)(m - 1) \), they might still make a mistake by trying to cancel terms that do not actually match. For instance, they might incorrectly cancel \( (m - 3) \) from the numerator and the denominator, leading to the wrong answer \( m + 1 \).
+
+3. **Misunderstanding of Simplification**: The student might have a misconception about what it means to simplify an algebraic fraction. They might think that any common terms in the numerator and denominator can be cancelled, even if they are not factors of the entire numerator or denominator.
+
+In summary, the student's misconception likely involves an incorrect factorization of the numerator or an incorrect application of the rules for simplifying algebraic fractions by cancelling common factors. This leads them to the wrong answer \( m + 1 \) instead of recognizing that the fraction does not simplify further.",891 143 59 1540 2398 2078 167 885 2021 1610 363 2363 606 2549 3 1593 80 633 1262 1554 715 1755 2068 113 1469 1825 2142 1871 979 1256 2307 265 319 1808 578 1929 288 436 838 482 485 361 1614 1535 1454 628 1433 1670 528 683 2504 98 1548 2533 331 1775 171 79 2247 2372 1388 1904 109 2020 346 418 2417 978 1392 1666 46 220 2114 848 1758 1798 577 990 29 2383 1991 832 2292 792 2178 120 1803 131 353 366 1506 2349 1049 413 1104 1638 610 1693 580 2070
+4,1870_B,Simplify an algebraic fraction by factorising the numerator,Simplifying Algebraic Fractions,"Simplify the following, if possible: \( \frac{m^{2}+2 m-3}{m-3} \)",Does not simplify,\( m+2 \),"The student's misconception likely stems from an incorrect approach to simplifying the algebraic fraction. Specifically, the student may have attempted to simplify the fraction by incorrectly canceling terms in the numerator and the denominator.
+
+Here's a detailed breakdown of the likely misconception:
+
+1. **Incorrect Cancellation**: The student might have tried to simplify the fraction by canceling terms directly. For example, they might have incorrectly thought that \( \frac{m^2 + 2m - 3}{m - 3} \) could be simplified by canceling the \( m \) terms, leading to \( m + 2 \).
+
+2. **Misunderstanding of Factorization**: The student might not have correctly factorized the numerator \( m^2 + 2m - 3 \). The correct factorization of the numerator is \( (m + 3)(m - 1) \). If the student did not factorize correctly or at all, they might have proceeded with an incorrect form of the numerator.
+
+3. **Incorrect Simplification Process**: The student might have thought that since the denominator is \( m - 3 \), they could simply ""cancel"" the \( m \) and the constant terms in the numerator, leading to \( m + 2 \). This is a common error where students try to simplify by directly canceling terms without proper factorization and common factor identification.
+
+In summary, the misconception likely involves an incorrect approach to simplifying the fraction by attempting to cancel terms without proper factorization of the numerator and understanding that the terms in the numerator and denominator must be common factors to be canceled.",143 891 885 2078 2398 1540 59 265 715 1610 1593 633 606 979 1755 1469 363 167 29 1825 98 2068 172 848 3 1929 2363 2307 1454 1928 2142 2021 80 1262 1535 1991 1554 1891 623 838 528 2549 1044 1735 2163 319 1104 79 381 1388 1417 1130 1049 1904 1871 1803 2247 347 2015 832 1606 538 1392 436 2372 2400 418 331 628 2504 113 2240 109 2245 46 990 2349 353 1256 1143 1156 2114 1700 1001 288 1807 413 1808 2533 1562 2422 1775 634 820 341 1548 346 792 1017 171
+5,1870_C,Simplify an algebraic fraction by factorising the numerator,Simplifying Algebraic Fractions,"Simplify the following, if possible: \( \frac{m^{2}+2 m-3}{m-3} \)",Does not simplify,\( m-1 \),"The student's misconception likely stems from an incorrect approach to factorizing the numerator or a misunderstanding of how to simplify algebraic fractions. Here's a detailed analysis of the likely misconception:
+
+1. **Incorrect Factorization**: The numerator \( m^2 + 2m - 3 \) can be factorized into \( (m + 3)(m - 1) \). However, the student might have incorrectly factorized the numerator or failed to recognize the correct factorization. If the student incorrectly factorized the numerator as \( (m - 3)(m + 1) \), they might have then cancelled the \( (m - 3) \) term in the numerator and the denominator, leading to the incorrect answer \( m + 1 \). Alternatively, if they incorrectly factorized it as \( (m - 3)(m - 1) \), they might have cancelled the \( (m - 3) \) term, leading to \( m - 1 \).
+
+2. **Misunderstanding of Simplification**: The student might have misunderstood the process of simplifying algebraic fractions. They might have thought that any common term in the numerator and the denominator can be cancelled out, without checking if the factorization is correct. In this case, the student might have seen \( m - 3 \) in the denominator and incorrectly assumed that \( m - 3 \) must be a factor in the numerator, leading to the incorrect cancellation and simplification to \( m - 1 \).
+
+In summary, the student's misconception likely involves an incorrect factorization of the numerator and a misunderstanding of the conditions under which terms can be cancelled in algebraic fractions.",891 143 1610 2398 885 59 2078 715 979 1540 1262 319 1454 1593 2307 1755 363 98 1554 633 80 1991 1700 1535 2400 265 2581 109 1929 1891 167 172 2479 606 1928 2070 683 1904 1825 528 370 29 2372 2549 418 2363 838 1256 1104 1562 832 547 1666 540 1146 1469 848 331 2142 2436 2586 1803 2068 1871 2021 2076 1614 1506 353 2020 171 1044 628 1808 2240 1697 519 512 969 1775 403 1206 783 557 2291 1512 2384 3 2163 1049 288 2015 91 1392 74 1735 1247 623 930 676
+6,1871_A,Calculate the range from a list of data,Range and Interquartile Range from a List of Data,"Tom and Katie are discussing the \( 5 \) plants with these heights:
+\( 24 \mathrm{~cm}, 17 \mathrm{~cm}, 42 \mathrm{~cm}, 26 \mathrm{~cm}, 13 \mathrm{~cm} \)
+Tom says if all the plants were cut in half, the range wouldn't change.
+Katie says if all the plants grew by \( 3 \mathrm{~cm} \) each, the range wouldn't change.
+Who do you agree with?","Only
+Katie","Only
+Tom","The student likely chose ""Only Tom"" because they misunderstood how changes to the data set affect the range. The range is defined as the difference between the maximum and minimum values in a data set. 
+
+Here's the misconception:
+- The student might think that cutting the plants in half (multiplying each height by \( \frac{1}{2} \)) would not change the range. However, this is incorrect because the range is directly affected by scaling all values by a constant factor. If all heights are halved, the new maximum and minimum values will also be halved, thus the range will be halved as well.
+- On the other hand, adding a constant value (3 cm) to each plant's height would indeed not change the range, because the difference between the maximum and minimum values remains the same. This is a correct understanding of how adding a constant to each value affects the range.
+
+Therefore, the misconception is that the student incorrectly believed that scaling the data (cutting the plants in half) would not change the range, while correctly understanding that adding a constant to each value would not change the range. This led them to agree with Tom instead of Katie.",1287 1408 2439 2408 1073 1059 1923 1975 227 163 494 2188 906 657 2438 1349 1306 2551 1336 1765 1177 2177 655 1200 1616 1677 1338 129 449 2503 1150 816 2064 397 2456 336 941 315 2584 1600 557 811 1498 278 1327 1318 2562 1853 1797 1216 1880 880 1700 1828 1779 1509 435 2471 1066 799 1534 1443 1521 2577 152 2448 787 365 2224 2575 2435 306 2130 2165 1449 912 1665 2116 2313 222 1094 676 1383 437 1895 1690 357 218 1387 1078 555 2217 2461 1055 1851 1428 1784 1231 2027 2160
+7,1871_C,Calculate the range from a list of data,Range and Interquartile Range from a List of Data,"Tom and Katie are discussing the \( 5 \) plants with these heights:
+\( 24 \mathrm{~cm}, 17 \mathrm{~cm}, 42 \mathrm{~cm}, 26 \mathrm{~cm}, 13 \mathrm{~cm} \)
+Tom says if all the plants were cut in half, the range wouldn't change.
+Katie says if all the plants grew by \( 3 \mathrm{~cm} \) each, the range wouldn't change.
+Who do you agree with?","Only
+Katie",Both Tom and Katie,"The misconception that led the student to incorrectly choose ""Both Tom and Katie"" likely stems from a misunderstanding of how the range is affected by changes to the data set.
+
+The range of a data set is calculated as the difference between the maximum and minimum values. Let's break down the reasoning for each scenario:
+
+1. **Tom's Scenario: Cutting all plants in half**
+   - If all the plants were cut in half, the new heights would be:
+     \[
+     \frac{24}{2} = 12 \mathrm{~cm}, \quad \frac{17}{2} = 8.5 \mathrm{~cm}, \quad \frac{42}{2} = 21 \mathrm{~cm}, \quad \frac{26}{2} = 13 \mathrm{~cm}, \quad \frac{13}{2} = 6.5 \mathrm{~cm}
+     \]
+   - The new range would be:
+     \[
+     21 - 6.5 = 14.5 \mathrm{~cm}
+     \]
+   - The original range was:
+     \[
+     42 - 13 = 29 \mathrm{~cm}
+     \]
+   - Clearly, the range has changed. Therefore, Tom's statement is incorrect.
+
+2. **Katie's Scenario: Growing all plants by \(3 \mathrm{~cm}\)**
+   - If all the plants grew by \(3 \mathrm{~cm}\), the new heights would be:
+     \[
+     24 + 3 = 27 \mathrm{~cm}, \quad 17 + 3 = 20 \mathrm{~cm}, \quad 42 + 3 = 45 \mathrm{~cm}, \quad 26 + 3 = 29 \mathrm{~cm}, \quad 13 + 3 = 16 \mathrm{~cm}
+     \]
+   - The new range would be:
+     \[
+     45 - 16 = 29 \mathrm{~cm}
+     \]
+   - The original range was:
+     \[
+     42 - 13 = 29 \mathrm{~cm}
+     \]
+   - The range remains the same. Therefore, Katie's statement is correct.
+
+The student's misconception likely lies in not recognizing that adding a constant to each value in the data set does not change the range, but multiplying each value by a constant does change the range. The student may have incorrectly assumed that both operations (cutting in half and adding a constant) would not affect the range, leading to the wrong answer of ""Both Tom and Katie.""",1287 1073 1408 2408 2439 557 1923 1765 1338 1700 906 2471 1059 1869 2188 2575 1975 1690 1336 2438 912 2584 771 2177 2064 2448 1742 315 1866 1855 676 1055 2551 691 1228 2325 511 2027 483 340 2135 941 2461 657 811 42 152 1797 1521 1524 1121 1600 1387 655 1828 985 2503 1066 1281 2217 1853 1534 1816 880 163 1509 2299 227 137 2185 1723 1999 2029 1516 2237 1779 1177 453 278 2449 2119 1216 173 293 2377 84 336 1327 365 306 129 762 1444 971 641 2160 449 1094 1507 1349
+8,1871_D,Calculate the range from a list of data,Range and Interquartile Range from a List of Data,"Tom and Katie are discussing the \( 5 \) plants with these heights:
+\( 24 \mathrm{~cm}, 17 \mathrm{~cm}, 42 \mathrm{~cm}, 26 \mathrm{~cm}, 13 \mathrm{~cm} \)
+Tom says if all the plants were cut in half, the range wouldn't change.
+Katie says if all the plants grew by \( 3 \mathrm{~cm} \) each, the range wouldn't change.
+Who do you agree with?","Only
+Katie",Neither is correct,"The student's misconception likely stems from a misunderstanding of how changes to individual data points affect the range of a dataset. The range is defined as the difference between the maximum and minimum values in a dataset.
+
+Let's break down the reasoning for each scenario:
+
+1. **Tom's Statement:**
+   - If all the plants were cut in half, the new heights would be \( 12 \mathrm{~cm}, 8.5 \mathrm{~cm}, 21 \mathrm{~cm}, 13 \mathrm{~cm}, 6.5 \mathrm{~cm} \).
+   - The new range would be \( 21 - 6.5 = 14.5 \mathrm{~cm} \).
+   - The original range was \( 42 - 13 = 29 \mathrm{~cm} \).
+   - Clearly, the range has changed.
+
+2. **Katie's Statement:**
+   - If all the plants grew by \( 3 \mathrm{~cm} \) each, the new heights would be \( 27 \mathrm{~cm}, 20 \mathrm{~cm}, 45 \mathrm{~cm}, 29 \mathrm{~cm}, 16 \mathrm{~cm} \).
+   - The new range would be \( 45 - 16 = 29 \mathrm{~cm} \).
+   - The original range was \( 42 - 13 = 29 \mathrm{~cm} \).
+   - The range remains the same.
+
+The misconception here is that the student might not fully grasp how scaling (multiplying) versus shifting (adding) affects the range. Specifically, the student might think that both operations (cutting in half and growing by \( 3 \mathrm{~cm} \)) would similarly affect the range, leading to the conclusion that neither statement is correct.
+
+In reality, adding a constant to each data point does not change the range, while multiplying each data point by a constant does change the range. This misunderstanding likely caused the student to incorrectly conclude that neither Tom nor Katie is correct.",1287 1073 1408 2439 1765 2408 1059 1975 1700 1338 2188 449 557 906 1336 1150 2151 1923 2177 365 676 1066 1318 245 1509 315 2165 1110 1281 1779 2438 2490 1534 657 1387 218 1327 137 912 2575 2551 1895 2448 1349 616 163 2555 2471 2504 2130 1055 2064 1828 1929 129 778 2377 293 1855 1216 981 1564 1528 366 941 1094 282 25 762 1132 340 1521 227 1601 2116 62 2531 2135 437 1600 1853 1784 1690 436 1306 1098 222 693 65 2584 14 1289 1693 1370 637 787 306 1866 1670 880
