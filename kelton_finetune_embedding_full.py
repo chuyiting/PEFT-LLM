@@ -148,31 +148,25 @@ class NewMisconceptionDataset(Dataset):
         with torch.no_grad():    
             misconception_embeddings = mean_pooling(self.model(**misconception_inputs), misconception_inputs['attention_mask'])
 
-        # misconception_embeddings = misconception_embeddings.cpu()
-        # torch.cuda.empty_cache()
-
         anchors = [" ".join([c, s, q, a, w]) for c, s, q, a, w in zip(
             self.construct_name, self.subject_name, self.question_text, self.correct_answer_text, self.wrong_answer_text)]
         anchor_inputs = tokenizer(anchors, padding=True, truncation=True, return_tensors="pt").to(device)      
 
-        batch_size = 32  # Adjust batch size based on available GPU memory
+        batch_size = 32
         anchor_embeddings = []
 
         for i in range(0, len(anchor_inputs['input_ids']), batch_size):
             batch_inputs = {k: v[i:i + batch_size] for k, v in anchor_inputs.items()}
             with torch.no_grad():
                 batch_embeddings = mean_pooling(self.model(**batch_inputs), batch_inputs['attention_mask'])
-            anchor_embeddings.append(batch_embeddings.cpu())  # Move batch to CPU
+            anchor_embeddings.append(batch_embeddings.cpu())
 
         anchor_embeddings = torch.cat(anchor_embeddings, dim=0)
-        # with torch.no_grad():    
-        #     anchor_embeddings = mean_pooling(self.model(**anchor_inputs), anchor_inputs['attention_mask'])
-            # anchor_output = self.model(**anchor_inputs)  
-        # anchor_embeddings = mean_pooling(self.model(**anchor_output), anchor_inputs['attention_mask'])
-        # anchor_embeddings = anchor_embeddings.cpu()
-        # torch.cuda.empty_cache()
 
-        similarity_matrix = cosine_similarity(anchor_embeddings, misconception_embeddings)
+        anchor_embeddings = anchor_embeddings.cpu()
+        misconception_embeddings = misconception_embeddings.cpu()
+
+        similarity_matrix = cosine_similarity(anchor_embeddings.numpy(), misconception_embeddings.numpy())
         top_k_indices = np.argsort(-similarity_matrix, axis=1)[:, :self.k]
 
         self.precomputed_negatives = [[self.misconception_map[idx] for idx in row] for row in top_k_indices]
