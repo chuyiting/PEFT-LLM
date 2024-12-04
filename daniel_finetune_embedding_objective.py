@@ -335,7 +335,6 @@ if __name__ == "__main__":
     parser.add_argument('--max_steps', type=int, default=-1, help="max number of steps for learning rate scheduler")
     parser.add_argument('--weight_decay', type=float, default=0.01, help="Adam weight decay")
     parser.add_argument('--model_name', type=str)
-    parser.add_argument('--hugging_face_repo', type=str)
 
     args = parser.parse_args()
     model_name = args.model_name
