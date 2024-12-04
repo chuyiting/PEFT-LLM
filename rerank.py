@@ -208,7 +208,7 @@ if __name__ == '__main__':
     reranked_candidate_ids = []
     with torch.no_grad():
         for batch in tqdm(dataloader):
-            B = len(batch['candidate_ids'])
+            
             candidate_ids = list(zip(*batch['candidate_ids']))  # Transposes from (N, K) -> (K, N)
             candidate_ids = torch.tensor(candidate_ids, dtype=torch.int64)  # Shape (K, N)
 
@@ -226,6 +226,7 @@ if __name__ == '__main__':
 
 
             # candidate
+            B, _ = prompt_hidden_state.shape 
             similarities = cosine_similarity(prompt_hidden_state, candidate_embeddings)
             print(f'similarity shape: {similarities.shape}')
             sorted_misconception_indices = torch.argsort(similarities, dim=1, descending=True).detach().numpy()
