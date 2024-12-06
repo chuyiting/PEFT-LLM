@@ -333,6 +333,7 @@ def evaluate(model, tokenizer, misconception_map, dataset, batch_size=16, cluste
 
             all_sorted_misconceptions.append(sorted_misconception_indices)
             all_correct_labels.append(labels)
+            break
         
         all_sorted_misconceptions = np.vstack(all_sorted_misconceptions).astype(int)  # Shape (B, num_misconceptions)
         print(f'misconception shape: {all_sorted_misconceptions.shape}')
