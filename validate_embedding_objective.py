@@ -35,7 +35,7 @@ cluster_path= os.path.join(os.getcwd(), 'data/misconception_cluster.csv')
 misconception_map_path = os.path.join(os.getcwd(), 'data/misconception_mapping.csv')
 max_length = 256
 
-def apk(actual, predicted, k=25, cluster_map=None, compare_cluster=True):
+def apk(actual, predicted, k=25, cluster_map=None, compare_cluster=False):
     """
     Computes the average precision at k.
     
